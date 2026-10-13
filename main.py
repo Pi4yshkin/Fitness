@@ -38,7 +38,7 @@ def main(page: ft.Page):
     rest_seconds = 60  # секунд по умолчанию
     timer_display = ft.Text("01:00", size=36, weight='bold')  # отображение таймера
     rest_task = None  # переменная для хранения задачи таймера отдыха
-    # sound_fta = fta.Audio(src='beep.mp3')
+    sound_fta = fta.Audio(src='beep.mp3', release_mode=fta.ReleaseMode.STOP,)
     # page.services.append(sound_fta)  # добавляем аудио сервис на страницу
     timer_picker = ft.CupertinoTimerPicker(
         value=rest_seconds,  # начальное значение таймера
@@ -76,10 +76,8 @@ def main(page: ft.Page):
             remaining -= 1
         timer_display.value = '00:00'  # обновляем отображение таймера после завершения обратного отсчета
         page.update()  # обновляем страницу
-        # await sound_fta.play()  # воспроизводим звуковой сигнал
-        show_rest_over_dialog()
+        await sound_fta.play()  # воспроизводим звуковой сигнал
         
-
 
     # --- Функция запуска таймера тренировки ---
     def start_workout(e):
@@ -89,7 +87,6 @@ def main(page: ft.Page):
             workout_seconds = 0  # сбрасываем счетчик тренировки
             workout_timer_text.value = "00:00"  # обновляем отображение таймера тренировки
             page.run_task(workout_timer)  # запускаем функцию таймера тренировки в отдельной задаче
-            # page.run_task(countdown)  # запускаем функцию таймера отдыха в отдельной задаче
 
     # --- Функция остановки таймера тренировки ---
     def finish_workout(e):
@@ -114,15 +111,6 @@ def main(page: ft.Page):
             rest_task.cancel()  # отменяем предыдущую задачу таймера, если она существует
         rest_task = page.run_task(countdown)  # запускаем функцию обратного отсчета в отдельной задаче, чтобы не блокировать интерфейс пользователя
 
-    def show_rest_over_dialog():  # функция для отображения диалогового окна после завершения таймера
-        dialog = ft.AlertDialog(
-            title=ft.Text('Отдых завершен!'),  # заголовок диалогового окна
-            content=ft.Text('Пора ебашить, дрыщ!'),  # содержимое диалогового окна
-            actions=[
-                ft.TextButton('Поняв :3', on_click=lambda e: close_dialog(dialog))  # кнопка для закрытия диалогового окна
-            ]
-        )
-        page.show_dialog(dialog)  # отображаем диалоговое окно на странице
 
     def close_dialog(dialog):  # функция для закрытия диалогового окна
         dialog.open = False  # закрываем диалоговое окно
