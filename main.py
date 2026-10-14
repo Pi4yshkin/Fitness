@@ -35,16 +35,20 @@ def main(page: ft.Page):
     workout_timer_text = ft.Text('00:00', size=36, weight='bold', color=ft.Colors.GREEN)  # отображение таймера тренировки
 
     # --- Таймер отдыха ---
-    rest_seconds = 60  # секунд по умолчанию
-    timer_display = ft.Text("01:00", size=36, weight='bold')  # отображение таймера
+    rest_seconds = 5  # секунд по умолчанию
+
+    def format_time(seconds):
+        mins, secs = divmod(int(seconds), 60)  # форматируем время в минуты и секунды
+        return f"{mins:02d}:{secs:02d}"
+
+    timer_display = ft.Text(format_time(rest_seconds), size=36, weight='bold')  # отображение таймера
     rest_task = None  # переменная для хранения задачи таймера отдыха
     sound_fta = fta.Audio(src='beep.mp3', release_mode=fta.ReleaseMode.STOP,)
-    # page.services.append(sound_fta)  # добавляем аудио сервис на страницу
+    auto_rest_switch = ft.Switch(label='Автостарт отдыха', value=True,)
     timer_picker = ft.CupertinoTimerPicker(
         value=rest_seconds,  # начальное значение таймера
         mode=ft.CupertinoTimerPickerMode.MINUTE_SECONDS,  # режим отображения минут и секунд
         on_change=lambda e: update_picker_value(e),  # обработчик изменения значения таймера
-
     )  
 
     def update_picker_value(e):  # функция обновления значения таймера при изменении пользователем
@@ -52,9 +56,6 @@ def main(page: ft.Page):
         rest_seconds = e.data  # обновляем значение таймера
         timer_display.value = format_time(rest_seconds)  # обновляем отображение таймера
 
-    def format_time(seconds):
-        mins, secs = divmod(int(seconds), 60)  # форматируем время в минуты и секунды
-        return f"{mins:02d}:{secs:02d}"
 
     # --- Общий счетчик тренировки (асинхронный) ---
     async def workout_timer():
@@ -104,11 +105,18 @@ def main(page: ft.Page):
         workout_timer_text.value = "00:00"  # сбрасываем отображение таймера тренировки
         workout_seconds = 0  # сбрасываем счетчик тренировки
 
+    def start_rest_timer():
+        nonlocal rest_task
+        if rest_task is not None:
+            rest_task.cancel()
+        rest_task = page.run_task(countdown)
+
 
     def start_timer(e):
         nonlocal rest_task
         if rest_task is not None:
             rest_task.cancel()  # отменяем предыдущую задачу таймера, если она существует
+        start_rest_timer()
         rest_task = page.run_task(countdown)  # запускаем функцию обратного отсчета в отдельной задаче, чтобы не блокировать интерфейс пользователя
 
 
@@ -121,14 +129,34 @@ def main(page: ft.Page):
     def refresh_history():
         history.controls.clear()  # очищаем текущую историю
         for index, w in enumerate(workouts):
-            history.controls.append(
-                ft.ListTile(
+            dismissible = ft.Dismissible(
+                content=ft.ListTile(
                     ft.Text(f"{w['exercise']}"),
                     ft.Text(f"{w['weight']} кг x {w['reps']} повторений"),
                     on_click=fill_from_history,
                     data = index,  # запоминаем индекс
-                )
+                ),
+                dismiss_direction=ft.DismissDirection.END_TO_START,  # движение справо на лево
+                background=ft.Container(bgcolor=ft.Colors.RED, alignment=ft.Alignment.CENTER_RIGHT, padding=20), # цвет заливки фона свайпа
+                secondary_background=ft.Container(
+                    content=ft.Icon(ft.Icons.DELETE, color=ft.Colors.WHITE),
+                    bgcolor=ft.Colors.RED,
+                    alignment=ft.Alignment.CENTER_RIGHT,
+                    padding=20,
+                ),
+                # Обработчик удаления
+                on_dismiss=lambda e, idx=index: remove_workout(e, idx),
+                key=str(index),
+                data=index,
             )
+            history.controls.append(dismissible)
+
+    def remove_workout(e, index):
+        if 0 <= index <= len(workouts):
+            del workouts[index]
+        save_data(workouts)
+        refresh_history()
+        page.update()
 
     save_button = ft.Button('Сохранить')  # кнопка для сохранения подхода
     cancel_button = ft.Button('Очистить', visible=False, color=ft.Colors.GREY)  # кнопка для очистки полей ввода
@@ -167,6 +195,8 @@ def main(page: ft.Page):
         reps.value = ''  # очищаем поле повторений
         cancel_button.visible = False  # скрываем кнопку "Очистить"
         refresh_history()  # обновляем историю после добавления нового подхода
+        if auto_rest_switch.value:
+            start_rest_timer()  # автоматический запуск таймера после подхода
 
 
     save_button.on_click = add_workout  # назначаем функцию добавления подхода на кнопку "Сохранить"
@@ -188,6 +218,7 @@ def main(page: ft.Page):
         ft.Row([save_button, cancel_button]),
         ft.Divider(),
         ft.Text('Таймер отдыха', size=24, weight='bold'),
+        auto_rest_switch,
         timer_display,
         timer_picker,
         ft.Button('Старт', on_click=start_timer),
