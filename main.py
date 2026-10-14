@@ -21,6 +21,7 @@ def main(page: ft.Page):
     page.title = 'Мой фитнес-трекер'
     page.scroll = "auto"
 
+
     workouts = load_data()
 
     # --- Поля для упражнений ---
@@ -39,6 +40,66 @@ def main(page: ft.Page):
 
     # --- Таймер отдыха ---
     rest_seconds = 5  # секунд по умолчанию
+
+
+    TRAINING_DAYS = [
+    {
+        "name": "Понедельник - Грудь",
+        "exercises": [
+            "Жим лежа",
+            "Разводка гантелей",
+            "Отжимания на брусьях"
+        ],
+    },
+    {
+        "name": "Среда - Спина",
+        "exercises": [
+            "Тяга верхнего блока",
+            "Тяга штанги",
+            "Подтягивания"
+        ],
+    },
+    {
+        "name": "Пятницы - Ноги",
+        "exercises": [
+            "Приседания",
+            "Болгарские выпады",
+            "Жим ногами"
+        ],
+    }
+    ]
+
+
+    tabs = ft.Tabs(
+        selected_index=0,
+        length=len(TRAINING_DAYS),
+        height=200,
+        content=ft.Column(
+            expand=True,
+            controls=[
+                ft.TabBar(
+                    tabs=[
+                        ft.Tab(label=day["name"])
+                        for day in TRAINING_DAYS
+                    ],
+                ),
+                ft.TabBarView(
+                    expand=True,
+                    controls=[
+                        ft.Container(
+                            content=ft.Column(
+                                controls=[
+                                    ft.Text(f"Упражнения: {', '.join(day['exercises'])}" ),
+                                ]
+                            ),
+                            padding=20,
+                        )
+                        for day in TRAINING_DAYS
+                    ],
+                ),
+            ],
+        ),
+    )
 
     def format_time(seconds):
         mins, secs = divmod(int(seconds), 60)  # форматируем время в минуты и секунды
@@ -212,24 +273,30 @@ def main(page: ft.Page):
  
     # --- Интерфейс пользователя ---
     page.add(
-        ft.Text('Время:', size=24, weight='bold'),
-        workout_timer_text,
-        ft.Row([start_workout_button, finish_workout_button]),
-        ft.Divider(),
-        ft.Text('Добавить подход', size=24, weight='bold'),
-        exercise,
-        weight,
-        reps,
-        ft.Row([save_button, cancel_button]),
-        ft.Divider(),
-        ft.Text('Таймер отдыха', size=24, weight='bold'),
-        auto_rest_switch,
-        timer_display,
-        timer_picker,
-        ft.Button('Старт', on_click=start_timer),
-        ft.Divider(),
-        ft.Text('История', size=20, weight='bold'),
-        history
+        ft.Column(
+            controls=[
+                ft.Text('Время:', size=24, weight='bold'),
+                workout_timer_text,
+                ft.Row([start_workout_button, finish_workout_button]),
+                ft.Divider(),
+                tabs,
+                ft.Text('Добавить подход', size=24, weight='bold'),
+                exercise,
+                weight,
+                reps,
+                ft.Row([save_button, cancel_button]),
+                ft.Divider(),
+                ft.Text('Таймер отдыха', size=24, weight='bold'),
+                auto_rest_switch,
+                timer_display,
+                timer_picker,
+                ft.Button('Старт', on_click=start_timer),
+                ft.Divider(),
+                ft.Text('История', size=20, weight='bold'),
+                history
+            ],
+            spacing=10,
+        ),
     )
 
     refresh_history()
