@@ -108,6 +108,7 @@ def main(page: ft.Page):
         page.show_dialog(dialog)  # отображаем диалоговое окно на странице
         workout_timer_text.value = "00:00"  # сбрасываем отображение таймера тренировки
         workout_seconds = 0  # сбрасываем счетчик тренировки
+        finish_workout_button.visible = False
 
     start_workout_button.on_click = start_workout
     finish_workout_button.on_click = finish_workout
