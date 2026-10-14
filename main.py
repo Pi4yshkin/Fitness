@@ -5,13 +5,17 @@ import os
 import flet as ft
 import flet_audio as fta
 
-DATA_FILE = "workouts.json"
+DATA_FILE = "data.json"
 
 def load_data():
     if os.path.exists(DATA_FILE):
         with open(DATA_FILE, 'r', encoding='utf-8') as f:
             return json.load(f)
-    return []
+    return {
+        "exercises_base": [],
+        "training_days": [],
+        "workouts": []
+    }
 
 def save_data(data):
     with open(DATA_FILE, 'w', encoding='utf-8') as f:
@@ -22,13 +26,15 @@ def main(page: ft.Page):
     page.scroll = "auto"
 
 
-    workouts = load_data()
+    data = load_data()
+    exercise_base = data["exercise_base"]
+    training_days = data["training_days"]
+    workouts = data["workouts"]
 
     # --- Поля для упражнений ---
     exercise = ft.TextField(label='Упражнение', hint_text='Введи упражнение')
     weight = ft.TextField(label='Вес (кг)', keyboard_type=ft.KeyboardType.NUMBER)
     reps = ft.TextField(label='Повторения', keyboard_type=ft.KeyboardType.NUMBER)
-    history = ft.Column()  # история тренировок
 
     # --- Общий счетчик тренировки ---
     workout_seconds = 0  # секунд по умолчанию
@@ -42,45 +48,22 @@ def main(page: ft.Page):
     rest_seconds = 5  # секунд по умолчанию
 
 
-    TRAINING_DAYS = [
-    {
-        "name": "Понедельник - Грудь",
-        "exercises": [
-            "Жим лежа",
-            "Разводка гантелей",
-            "Отжимания на брусьях"
-        ],
-    },
-    {
-        "name": "Среда - Спина",
-        "exercises": [
-            "Тяга верхнего блока",
-            "Тяга штанги",
-            "Подтягивания"
-        ],
-    },
-    {
-        "name": "Пятницы - Ноги",
-        "exercises": [
-            "Приседания",
-            "Болгарские выпады",
-            "Жим ногами"
-        ],
+    day_histories = {
+        day['id']: ft.Column() for day in training_days
     }
-    ]
-
 
     tabs = ft.Tabs(
         selected_index=0,
-        length=len(TRAINING_DAYS),
-        height=200,
+        length=len(training_days),
+        height=500,
+        on_change=lambda e: on_tab_change(e),
         content=ft.Column(
             expand=True,
             controls=[
                 ft.TabBar(
                     tabs=[
                         ft.Tab(label=day["name"])
-                        for day in TRAINING_DAYS
+                        for day in training_days
                     ],
                 ),
                 ft.TabBarView(
@@ -89,17 +72,18 @@ def main(page: ft.Page):
                         ft.Container(
                             content=ft.Column(
                                 controls=[
-                                    ft.Text(f"Упражнения: {', '.join(day['exercises'])}" ),
-                                ]
-                            ),
-                            padding=20,
-                        )
-                        for day in TRAINING_DAYS
-                    ],
-                ),
-            ],
-        ),
-    )
+                                    ft.Text("Подходы:"),
+                                    day_histories[day['id']],
+                                ]),
+                            padding=20,)
+                        for day in training_days],),],),)
+    
+    current_day_id = training_days[0]['id']  # какой сейчас день открыт
+
+    def on_tab_change(e):
+        nonlocal current_day_id
+        current_day_id = training_days[int(e.data)]['id']
+        refresh_history()
 
     def format_time(seconds):
         mins, secs = divmod(int(seconds), 60)  # форматируем время в минуты и секунды
@@ -196,34 +180,38 @@ def main(page: ft.Page):
 
     # --- Функция обновления истории ---
     def refresh_history():
-        history.controls.clear()  # очищаем текущую историю
-        for index, w in enumerate(workouts):
-            dismissible = ft.Dismissible(
-                content=ft.ListTile(
-                    ft.Text(f"{w['exercise']}"),
-                    ft.Text(f"{w['weight']} кг x {w['reps']} повторений"),
-                    on_click=fill_from_history,
-                    data = index,  # запоминаем индекс
-                ),
-                dismiss_direction=ft.DismissDirection.END_TO_START,  # движение справо на лево
-                background=ft.Container(bgcolor=ft.Colors.RED, alignment=ft.Alignment.CENTER_RIGHT, padding=20), # цвет заливки фона свайпа
-                secondary_background=ft.Container(
-                    content=ft.Icon(ft.Icons.DELETE, color=ft.Colors.WHITE),
-                    bgcolor=ft.Colors.RED,
-                    alignment=ft.Alignment.CENTER_RIGHT,
-                    padding=20,
-                ),
-                # Обработчик удаления
-                on_dismiss=lambda e, idx=index: remove_workout(e, idx),
-                key=str(index),
-                data=index,
-            )
-            history.controls.append(dismissible)
+        for day_id, column in day_histories.items():
+            column.controls.clear()  # очищаем текущую историю
+            for index, w in enumerate(workouts):
+                if w.get('day_id') != day_id:
+                    continue
+                dismissible = ft.Dismissible(
+                    content=ft.ListTile(
+                        ft.Text(f"{w['exercise']}"),
+                        ft.Text(f"{w['weight']} кг x {w['reps']} повторений"),
+                        on_click=fill_from_history,
+                        data = index,  # запоминаем индекс
+                    ),
+                    dismiss_direction=ft.DismissDirection.END_TO_START,  # движение справо на лево
+                    background=ft.Container(bgcolor=ft.Colors.RED, alignment=ft.Alignment.CENTER_RIGHT, padding=20), # цвет заливки фона свайпа
+                    secondary_background=ft.Container(
+                        content=ft.Icon(ft.Icons.DELETE, color=ft.Colors.WHITE),
+                        bgcolor=ft.Colors.RED,
+                        alignment=ft.Alignment.CENTER_RIGHT,
+                        padding=20,
+                    ),
+                    # Обработчик удаления
+                    on_dismiss=lambda e, idx=index: remove_workout(e, idx),
+                    key=str(index),
+                    data=index,
+                )
+                column.controls.append(dismissible)
+        page.update()
 
     def remove_workout(e, index):
         if 0 <= index <= len(workouts):
             del workouts[index]
-        save_data(workouts)
+        save_data(data)
         refresh_history()
         page.update()
 
@@ -253,12 +241,13 @@ def main(page: ft.Page):
         if not exercise.value:  # проверяем, что поле упражнения не пустое
             return
         record = {
+            'day_id': current_day_id,  # актуальный день
             'exercise': exercise.value,
             'weight': weight.value,
             'reps': reps.value
         }
         workouts.append(record)  # добавляем новый подход в список
-        save_data(workouts)  # сохраняем данные в файл
+        save_data(data)  # сохраняем данные в файл
         exercise.value = ''  # очищаем поле упражнения
         weight.value = ''  # очищаем поле веса
         reps.value = ''  # очищаем поле повторений
@@ -270,6 +259,15 @@ def main(page: ft.Page):
 
     save_button.on_click = add_workout  # назначаем функцию добавления подхода на кнопку "Сохранить"
     cancel_button.on_click = cancel_edit  # назначаем функцию очистки полей на кнопку "Очистить"
+
+    # # --- Добавляем главный экран ---
+    # def build_main_view():
+    #     return ft.View(
+    #         route="/",
+    #         controls=[
+
+    #         ]
+    #     )
  
     # --- Интерфейс пользователя ---
     page.add(
@@ -292,8 +290,6 @@ def main(page: ft.Page):
                 timer_picker,
                 ft.Button('Старт', on_click=start_timer),
                 ft.Divider(),
-                ft.Text('История', size=20, weight='bold'),
-                history
             ],
             spacing=10,
         ),
