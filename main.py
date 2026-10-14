@@ -33,6 +33,9 @@ def main(page: ft.Page):
     workout_seconds = 0  # секунд по умолчанию
     workout_running = False  # флаг состояния тренировки
     workout_timer_text = ft.Text('00:00', size=36, weight='bold', color=ft.Colors.GREEN)  # отображение таймера тренировки
+    start_workout_button = ft.Button('Стартуем')
+    finish_workout_button = ft.Button('ОстановОчка', color=ft.Colors.RED, visible=False)
+
 
     # --- Таймер отдыха ---
     rest_seconds = 5  # секунд по умолчанию
@@ -87,6 +90,7 @@ def main(page: ft.Page):
             workout_running = True
             workout_seconds = 0  # сбрасываем счетчик тренировки
             workout_timer_text.value = "00:00"  # обновляем отображение таймера тренировки
+            finish_workout_button.visible = True
             page.run_task(workout_timer)  # запускаем функцию таймера тренировки в отдельной задаче
 
     # --- Функция остановки таймера тренировки ---
@@ -95,15 +99,18 @@ def main(page: ft.Page):
         workout_running = False  # останавливаем таймер тренировки
         final_time = workout_timer_text.value # сохраняем финальное время тренировки
         dialog = ft.AlertDialog(
-            title=ft.Text('Поздравляю, вы не сдолхи (сегодня :3)!'),
+            title=ft.Text('Выпей теперь пивка!'),
             content=ft.Text(f"Время тренировки: {final_time}"),
             actions=[
-                ft.TextButton('Шо так тяжело то блять', on_click=lambda e: close_dialog(dialog))  # кнопка для закрытия диалогового окна
+                ft.TextButton('Лады :3', on_click=lambda e: close_dialog(dialog))  # кнопка для закрытия диалогового окна
             ],
         )
         page.show_dialog(dialog)  # отображаем диалоговое окно на странице
         workout_timer_text.value = "00:00"  # сбрасываем отображение таймера тренировки
         workout_seconds = 0  # сбрасываем счетчик тренировки
+
+    start_workout_button.on_click = start_workout
+    finish_workout_button.on_click = finish_workout
 
     def start_rest_timer():
         nonlocal rest_task
@@ -206,10 +213,7 @@ def main(page: ft.Page):
     page.add(
         ft.Text('Время:', size=24, weight='bold'),
         workout_timer_text,
-        ft.Row([
-            ft.Button('Старт', on_click=start_workout),
-            ft.Button('Ну ладно, хорош!', on_click=finish_workout, color=ft.Colors.RED),
-        ]),
+        ft.Row([start_workout_button, finish_workout_button]),
         ft.Divider(),
         ft.Text('Добавить подход', size=24, weight='bold'),
         exercise,
