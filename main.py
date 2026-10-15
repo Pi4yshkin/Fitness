@@ -23,7 +23,6 @@ def save_data(data):
 
 def main(page: ft.Page):
     page.title = 'Мой фитнес-трекер'
-    page.scroll = "auto"
 
 
     data = load_data()
@@ -48,7 +47,7 @@ def main(page: ft.Page):
     rest_seconds = 5  # секунд по умолчанию
 
 
-    day_histories = {
+    day_exercises_list = {
         day['id']: ft.Column() for day in training_days
     }
 
@@ -72,8 +71,12 @@ def main(page: ft.Page):
                         ft.Container(
                             content=ft.Column(
                                 controls=[
-                                    ft.Text("Подходы:"),
-                                    day_histories[day['id']],
+                                    ft.Text("Нпражнения:", size=18, weight='bold'),
+                                    day_exercises_list[day['id']],
+                                    ft.TextButton(
+                                        "Добавить упражнение", 
+                                        on_click=lambda e, d_id=day['id']: 
+                                        asyncio.create_task(page.push_route(f"/add-to/{d_id}"))),
                                 ]),
                             padding=20,)
                         for day in training_days],),],),)
@@ -83,7 +86,7 @@ def main(page: ft.Page):
     def on_tab_change(e):
         nonlocal current_day_id
         current_day_id = training_days[int(e.data)]['id']
-        refresh_history()
+        refresh_exercises()
 
     def format_time(seconds):
         mins, secs = divmod(int(seconds), 60)  # форматируем время в минуты и секунды
@@ -179,123 +182,218 @@ def main(page: ft.Page):
 
 
     # --- Функция обновления истории ---
-    def refresh_history():
-        for day_id, column in day_histories.items():
+    def refresh_exercises():
+        for day_id, column in day_exercises_list.items():
             column.controls.clear()  # очищаем текущую историю
-            for index, w in enumerate(workouts):
-                if w.get('day_id') != day_id:
-                    continue
-                dismissible = ft.Dismissible(
-                    content=ft.ListTile(
-                        ft.Text(f"{w['exercise']}"),
-                        ft.Text(f"{w['weight']} кг x {w['reps']} повторений"),
-                        on_click=fill_from_history,
-                        data = index,  # запоминаем индекс
-                    ),
-                    dismiss_direction=ft.DismissDirection.END_TO_START,  # движение справо на лево
-                    background=ft.Container(bgcolor=ft.Colors.RED, alignment=ft.Alignment.CENTER_RIGHT, padding=20), # цвет заливки фона свайпа
-                    secondary_background=ft.Container(
-                        content=ft.Icon(ft.Icons.DELETE, color=ft.Colors.WHITE),
-                        bgcolor=ft.Colors.RED,
-                        alignment=ft.Alignment.CENTER_RIGHT,
-                        padding=20,
-                    ),
-                    # Обработчик удаления
-                    on_dismiss=lambda e, idx=index: remove_workout(e, idx),
-                    key=str(index),
-                    data=index,
+            day = next((d for d in training_days if d['id'] == day_id), None)
+            if day is None:
+                continue
+            for ex_name in day.get('exercises', []):
+                column.controls.append(
+                    ft.ListTile(
+                        title=ft.Text(ex_name),
+                        on_click=lambda e, d_id=day_id, ex=ex_name:
+                        asyncio.create_task(page.push_route(f"/exercise/{d_id}/{ex}")),
+                    )
                 )
-                column.controls.append(dismissible)
         page.update()
 
-    def remove_workout(e, index):
-        if 0 <= index <= len(workouts):
-            del workouts[index]
-        save_data(data)
-        refresh_history()
-        page.update()
+    # def remove_workout(e, index):
+    #     if 0 <= index <= len(workouts):
+    #         del workouts[index]
+    #     save_data(data)
+    #     refresh_history()
+    #     page.update()
 
     save_button = ft.Button('Сохранить')  # кнопка для сохранения подхода
     cancel_button = ft.Button('Очистить', visible=False, color=ft.Colors.GREY)  # кнопка для очистки полей ввода
 
-    def fill_from_history(e):  # функция заполнения полей из истории
-        index = e.control.data  # получаем индекс выбранного подхода
-        w = workouts[index]  # получаем данные подхода по индексу
-        exercise.value = w['exercise']  # заполняем поле упражнения
-        weight.value = w['weight']  # заполняем поле веса
-        reps.value = w['reps']  # заполняем поле повторений
-        cancel_button.visible = True  # делаем кнопку "Очистить" видимой
-        # Прокрутим страницу к полям ввода, чтобы пользователь видел их
-        page.scroll = "always"  # включаем автоматическую прокрутку страницы
-        page.update()  # обновляем страницу после заполнения полей
+    # def fill_from_history(e):  # функция заполнения полей из истории
+    #     index = e.control.data  # получаем индекс выбранного подхода
+    #     w = workouts[index]  # получаем данные подхода по индексу
+    #     exercise.value = w['exercise']  # заполняем поле упражнения
+    #     weight.value = w['weight']  # заполняем поле веса
+    #     reps.value = w['reps']  # заполняем поле повторений
+    #     cancel_button.visible = True  # делаем кнопку "Очистить" видимой
+    #     page.update()  # обновляем страницу после заполнения полей
 
-    def cancel_edit(e):  # функция очистки полей ввода
-        exercise.value = ''  # очищаем поле упражнения
-        weight.value = ''  # очищаем поле веса
-        reps.value = ''  # очищаем поле повторений
-        cancel_button.visible = False  # скрываем кнопку "Очистить"
-        page.update()
+    # def cancel_edit(e):  # функция очистки полей ввода
+    #     exercise.value = ''  # очищаем поле упражнения
+    #     weight.value = ''  # очищаем поле веса
+    #     reps.value = ''  # очищаем поле повторений
+    #     cancel_button.visible = False  # скрываем кнопку "Очистить"
+    #     page.update()
 
 
-    def add_workout(e):  # функция добавления нового подхода
-        if not exercise.value:  # проверяем, что поле упражнения не пустое
-            return
-        record = {
-            'day_id': current_day_id,  # актуальный день
-            'exercise': exercise.value,
-            'weight': weight.value,
-            'reps': reps.value
-        }
-        workouts.append(record)  # добавляем новый подход в список
-        save_data(data)  # сохраняем данные в файл
-        exercise.value = ''  # очищаем поле упражнения
-        weight.value = ''  # очищаем поле веса
-        reps.value = ''  # очищаем поле повторений
-        cancel_button.visible = False  # скрываем кнопку "Очистить"
-        refresh_history()  # обновляем историю после добавления нового подхода
-        if auto_rest_switch.value:
-            start_rest_timer()  # автоматический запуск таймера после подхода
+    # def add_workout(e):  # функция добавления нового подхода
+    #     if not exercise.value:  # проверяем, что поле упражнения не пустое
+    #         return
+    #     record = {
+    #         'day_id': current_day_id,  # актуальный день
+    #         'exercise': exercise.value,
+    #         'weight': weight.value,
+    #         'reps': reps.value
+    #     }
+    #     workouts.append(record)  # добавляем новый подход в список
+    #     save_data(data)  # сохраняем данные в файл
+    #     exercise.value = ''  # очищаем поле упражнения
+    #     weight.value = ''  # очищаем поле веса
+    #     reps.value = ''  # очищаем поле повторений
+    #     cancel_button.visible = False  # скрываем кнопку "Очистить"
+    #     refresh_history()  # обновляем историю после добавления нового подхода
+    #     if auto_rest_switch.value:
+    #         start_rest_timer()  # автоматический запуск таймера после подхода
 
 
-    save_button.on_click = add_workout  # назначаем функцию добавления подхода на кнопку "Сохранить"
-    cancel_button.on_click = cancel_edit  # назначаем функцию очистки полей на кнопку "Очистить"
+    # save_button.on_click = add_workout  # назначаем функцию добавления подхода на кнопку "Сохранить"
+    # cancel_button.on_click = cancel_edit  # назначаем функцию очистки полей на кнопку "Очистить"
 
-    # # --- Добавляем главный экран ---
-    # def build_main_view():
-    #     return ft.View(
-    #         route="/",
-    #         controls=[
-
-    #         ]
-    #     )
- 
-    # --- Интерфейс пользователя ---
-    page.add(
-        ft.Column(
+    # --- Добавляем главный экран ---
+    def build_main_view():
+        return ft.View(
+            route="/",
+            padding=0,
             controls=[
-                ft.Text('Время:', size=24, weight='bold'),
-                workout_timer_text,
-                ft.Row([start_workout_button, finish_workout_button]),
-                ft.Divider(),
-                tabs,
-                ft.Text('Добавить подход', size=24, weight='bold'),
-                exercise,
-                weight,
-                reps,
-                ft.Row([save_button, cancel_button]),
-                ft.Divider(),
-                ft.Text('Таймер отдыха', size=24, weight='bold'),
-                auto_rest_switch,
-                timer_display,
-                timer_picker,
-                ft.Button('Старт', on_click=start_timer),
-                ft.Divider(),
-            ],
-            spacing=10,
-        ),
-    )
+                ft.AppBar(title=ft.Text("Тренировки")),
+                ft.Column(
+                    controls=[
+                        ft.Text('Время:', size=24, weight='bold'),
+                        workout_timer_text,
+                        ft.Row([start_workout_button, finish_workout_button]),
+                        ft.Divider(),
+                        tabs,
+                        # ft.Text('Добавить подход', size=24, weight='bold'),
+                        # exercise,
+                        # weight,
+                        # reps,
+                        # ft.Row([save_button, cancel_button]),
+                        # ft.Divider(),
+                        # ft.Text('Таймер отдыха', size=24, weight='bold'),
+                        # auto_rest_switch,
+                        # timer_display,
+                        # timer_picker,
+                        # ft.Button('Старт', on_click=start_timer),
+                        ft.Divider(),
+                            ],
+                            spacing=10,
+                            scroll=ft.ScrollMode.AUTO,
+                            expand=True,
+                        ),
+                    ]
+                )
+ 
 
-    refresh_history()
+    def build_muscle_picker_view(day_id):
+        # Собираем уникальные группы мышц из базы
+        muscles = sorted(set(ex.get('muscle', '') for ex in exercise_base if ex.get('muscle')))
 
+        def go_to_muscle(e, m):
+            asyncio.create_task(page.push_route(f"/add-to/{day_id}/{m}"))
+
+        controls = [
+            ft.AppBar(
+                title=ft.Text("Выберите группу мыщц"),
+                leading=ft.IconButton(
+                    ft.Icons.ARROW_BACK,
+                    on_click=lambda e: asyncio.create_task(page.push_route("/")),),),]
+
+        if not muscles:
+            controls.append(ft.Text("База упражнений пуста", size=16))
+        else:
+            controls.append(
+                ft.Column(
+                    controls=[
+                        ft.ListTile(
+                            title=ft.Text(m),
+                            trailing=ft.Icon(ft.Icons.CHEVRON_RIGHT),
+                            on_click=lambda e, m=m: go_to_muscle(e, m), 
+                        )
+                        for m in muscles
+                    ],
+                    scroll=ft.ScrollMode.AUTO,
+                    expand=True
+                )
+            )
+        return ft.View(
+            route=f"/add-to/{day_id}",
+            padding=0,
+            controls=controls,
+        )
+
+    def build_exercise_picker_view(day_id, muscle):
+        exercises = [ex for ex in exercise_base if ex.get('muscle') == muscle]
+
+        def add_chosen(ex_name):
+            for day in training_days:
+                if day['id'] == day_id:
+                    if ex_name not in day['exercises']:
+                        day['exercises'].append(ex_name)
+                    break
+            save_data(data)
+            asyncio.create_task(page.push_route("/"))
+
+        def back_to_muscles(e):
+            asyncio.create_task(page.push_route(f"/add-to/{day_id}"))
+
+        controls = [
+            ft.AppBar(
+                title=ft.Text(muscle),
+                leading=ft.IconButton(
+                    icon=ft.Icons.ARROW_BACK,
+                    on_click=back_to_muscles,
+                ),
+            ),
+        ]
+
+        if not exercises:
+            controls.append(ft.Text("В этой группе пока нет упражнений", size=16))
+        else:
+            controls.append(
+                ft.Column(
+                    controls=[
+                        ft.ListTile(
+                            title=ft.Text(ex['name']),
+                            subtitle=ft.Text(ex.get('description', '')),
+                            on_click=lambda e, n=ex['name']: add_chosen(n)
+                        )
+                        for ex in exercises
+                    ],
+                    scroll=ft.ScrollMode.AUTO,
+                    expand=True,
+                )
+            )
+
+        return ft.View(
+            route=f"/add-to/{day_id}/{muscle}",
+            padding=0,
+            controls=controls,
+            )
+
+    async def view_pop(e):
+        if e.view is not None:
+            page.views.remove(e.view)
+            top_view = page.views[-1]
+            await page.push_route(top_view.route)
+    page.on_view_pop = view_pop
+
+    
+    # --- Роутер ---
+    def on_route_change(e):
+        page.views.clear()
+        route = page.route
+        if route.startswith("/add-to/"):
+            parts = route.split("/")
+            day_id = parts[2]
+            if len(parts) >= 4 and parts[3]:
+                page.views.append(build_exercise_picker_view(day_id, parts[3]))
+            else:
+                page.views.append(build_muscle_picker_view(day_id))
+        else:
+            page.views.append(build_main_view())
+            refresh_exercises()
+        page.update()
+    page.on_route_change = on_route_change
+    on_route_change(None)
+    refresh_exercises()
 
 ft.run(main)
