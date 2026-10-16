@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+from datetime import datetime
 
 import flet as ft
 import flet_audio as fta
@@ -376,7 +377,124 @@ def main(page: ft.Page):
             await page.push_route(top_view.route)
     page.on_view_pop = view_pop
 
-    
+
+    def build_exercise_view(day_id, ex_name):
+
+        def save_approach(e):
+            count = sum(1 for w in workouts if w.get('day_id') == day_id and w.get('exercise') == ex_name) + 1
+
+            record = {
+                'day_id': day_id,
+                'exercise': ex_name,
+                'weight': weight_field.value,
+                'reps': reps_field.value,
+                'comment': comment_field.value,
+                'date': datetime.now().strftime('%Y-%m-%d'),
+            }
+
+            workouts.append(record)
+            save_data(data)
+            weight_field.value = ''
+            reps_field.value = ''
+            comment_field.value = ''
+            rebuild_history()
+            if auto_rest_switch.value:
+                start_rest_timer()
+
+        def rebuild_history():
+            history_column.controls.clear()
+            # собираем записи по этому упражнению
+            entries = [
+                w for w in workouts if w.get('day_id') == day_id and w.get('exercise') == ex_name
+            ]
+            # группируем по дате
+            by_date = {}
+            for w in entries:
+                d = w.get('date', 'Без даты')
+                by_date.setdefault(d, []).append(w)
+
+            total = len(entries)
+            count_text.value = f"Подходов выполнено: {total}"
+
+            # Сортируем даты по убыванию
+            for date in sorted(by_date.keys(), reverse=True):
+                # Форматируем дату красиво
+                if date != "Без даты":
+                    try:
+                        dt = datetime.strptime(date, '%Y-%m-%d')
+                        pretty = dt.strftime('%d.%m.%y, %a')
+                    except Exception:
+                        pretty = date
+                else:
+                    pretty = date
+
+                history_column.controls.append(ft.Text(pretty, size=16, weight='bold'))
+
+                # записи этого дня в обратном порядке
+                day_entries = list(reversed(by_date[date]))
+                for i, w in enumerate(day_entries, start=1):
+                    num = total - (i - 1)
+                    comment = w.get('comment', '')
+                    comment_str = f" - {comment}" if comment else ''
+                    history_column.controls.append(
+                        ft.Text(
+                            f" #{num} {w.get('weight', '')} кг {w.get('reps', '')}{comment_str}"
+                        )
+                    )
+            page.update()
+
+        # --- Поля ввода ---
+        weight_field = ft.TextField(label='Вес (кг)', keyboard_type=ft.KeyboardType.NUMBER, expand=1)
+        reps_field = ft.TextField(label='Повторения', keyboard_type=ft.KeyboardType.NUMBER, expand=1)
+        comment_field = ft.TextField(label='Коментарий', expand=2)
+        count_text = ft.Text('Подходов выполено: 0', size=16, weight='bold')
+        history_column = ft.Column()
+
+        add_button = ft.Button('Добавить подход', on_click=save_approach)
+
+        # --- AppBar ---
+        appbar = ft.AppBar(
+            title=ft.Text(ex_name),
+            leading=ft.IconButton(
+                icon=ft.Icons.ARROW_BACK,
+                on_click=lambda e: asyncio.create_task(page.push_route("/")),
+            ),
+        )
+
+        # --- Содержимое ---
+        content = ft.Column(
+            controls=[
+                count_text,
+                ft.Divider(),
+                ft.Text('Время отдыха', size=18, weight='bold'),
+                auto_rest_switch,
+                timer_display,
+                timer_picker,
+                ft.Button('Старт', on_click=start_timer),
+                ft.Divider(),
+                ft.Text('Новый подход', size=18, weight='bold'),
+                ft.Row([weight_field, reps_field]),
+                comment_field,
+                add_button,
+                ft.Divider(),
+                ft.Text('История', size=18, weight='bold'),
+                history_column,
+            ],
+            spacing=10,
+            scroll=ft.ScrollMode.AUTO,
+            expand=True
+        )
+
+        # --- Первая отрисовка истории ---
+        rebuild_history()
+
+        return ft.View(
+            route=f"/add-to/{day_id}/{ex_name}",
+            padding=0,
+            controls=[appbar, content]
+        )
+
+
     # --- Роутер ---
     def on_route_change(e):
         page.views.clear()
@@ -388,6 +506,11 @@ def main(page: ft.Page):
                 page.views.append(build_exercise_picker_view(day_id, parts[3]))
             else:
                 page.views.append(build_muscle_picker_view(day_id))
+        elif route.startswith("/exercise/"):
+            parts = route.split("/")
+            day_id = parts[2]
+            ex_name = parts[3]
+            page.views.append(build_exercise_view(day_id, ex_name))
         else:
             page.views.append(build_main_view())
             refresh_exercises()
