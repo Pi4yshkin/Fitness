@@ -72,7 +72,7 @@ def main(page: ft.Page):
                         ft.Container(
                             content=ft.Column(
                                 controls=[
-                                    ft.Text("Нпражнения:", size=18, weight='bold'),
+                                    ft.Text("Упражнения:", size=18, weight='bold'),
                                     day_exercises_list[day['id']],
                                     ft.TextButton(
                                         "Добавить упражнение", 
@@ -181,6 +181,16 @@ def main(page: ft.Page):
         dialog.open = False  # закрываем диалоговое окно
         page.update()  # обновляем страницу после закрытия диалогового окна
 
+    def remove_exercise_from_day(day_id, ex_index):
+        for day in training_days:
+            if day['id'] == day_id:
+                if 0 <= ex_index <= len(day['exercises']):
+                    day['exercises'].pop(ex_index)
+                break
+        save_data(data)
+        refresh_exercises()
+        page.update()
+
 
     # --- Функция обновления истории ---
     def refresh_exercises():
@@ -189,15 +199,32 @@ def main(page: ft.Page):
             day = next((d for d in training_days if d['id'] == day_id), None)
             if day is None:
                 continue
-            for ex_name in day.get('exercises', []):
-                column.controls.append(
-                    ft.ListTile(
+            for ex_index, ex_name in enumerate(day.get('exercises', [])):
+                dismissible = ft.Dismissible(
+                    content=ft.ListTile(
                         title=ft.Text(ex_name),
                         on_click=lambda e, d_id=day_id, ex=ex_name:
                         asyncio.create_task(page.push_route(f"/exercise/{d_id}/{ex}")),
-                    )
+                    ),
+                    dismiss_direction=ft.DismissDirection.END_TO_START,
+                    background=ft.Container(
+                        bgcolor=ft.Colors.RED,
+                        alignment=ft.Alignment.CENTER_RIGHT,
+                        padding=20
+                    ),
+                    secondary_background=ft.Container(
+                        content=ft.Icon(ft.Icons.DELETE, color=ft.Colors.WHITE),
+                        bgcolor=ft.Colors.RED,
+                        alignment=ft.Alignment.CENTER_RIGHT,
+                        padding=20,
+                    ),
+                    on_dismiss=lambda e, d_id=day_id, idx=ex_index:
+                    remove_exercise_from_day(d_id, idx),
+                    key=f"{day_id}_{ex_index}_{ex_name}",
                 )
+                column.controls.append(dismissible)
         page.update()
+
 
     # def remove_workout(e, index):
     #     if 0 <= index <= len(workouts):
