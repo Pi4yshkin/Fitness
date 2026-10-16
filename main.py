@@ -97,16 +97,38 @@ def main(page: ft.Page):
     rest_task = None  # переменная для хранения задачи таймера отдыха
     sound_fta = fta.Audio(src='beep.mp3', release_mode=fta.ReleaseMode.STOP,)
     auto_rest_switch = ft.Switch(label='Автостарт отдыха', value=True,)
-    timer_picker = ft.CupertinoTimerPicker(
-        value=rest_seconds,  # начальное значение таймера
-        mode=ft.CupertinoTimerPickerMode.MINUTE_SECONDS,  # режим отображения минут и секунд
-        on_change=lambda e: update_picker_value(e),  # обработчик изменения значения таймера
-    )  
+    # timer_picker = ft.CupertinoTimerPicker(
+    #     value=rest_seconds,  # начальное значение таймера
+    #     mode=ft.CupertinoTimerPickerMode.MINUTE_SECONDS,  # режим отображения минут и секунд
+    #     on_change=lambda e: update_picker_value(e),  # обработчик изменения значения таймера
+    # )  
 
-    def update_picker_value(e):  # функция обновления значения таймера при изменении пользователем
-        nonlocal rest_seconds  # используем nonlocal для изменения переменной из внешней области видимости
-        rest_seconds = e.data  # обновляем значение таймера
-        timer_display.value = format_time(rest_seconds)  # обновляем отображение таймера
+    def decrease_rest(e):
+        nonlocal rest_seconds
+        if rest_seconds > 30:
+            rest_seconds -= 30
+            timer_display.value = format_time(rest_seconds)
+            rest_seconds_text.value = f"{rest_seconds} сек"
+            page.update()
+
+
+    def increase_rest(e):
+        nonlocal rest_seconds
+        rest_seconds += 30
+        timer_display.value = format_time(rest_seconds)
+        rest_seconds_text.value = f"{rest_seconds} сек"
+        page.update()
+
+    rest_seconds_text = ft.Text(f"{rest_seconds} сек", size=18, weight='bold')
+
+    rest_picker_row = ft.Row(
+        controls=[
+            ft.IconButton(icon=ft.Icons.REMOVE, on_click=decrease_rest),
+            rest_seconds_text,
+            ft.IconButton(icon=ft.Icons.ADD, on_click=increase_rest),
+        ],
+        alignment = ft.MainAxisAlignment.CENTER,
+    )
 
 
     # --- Общий счетчик тренировки (асинхронный) ---
@@ -226,55 +248,9 @@ def main(page: ft.Page):
         page.update()
 
 
-    # def remove_workout(e, index):
-    #     if 0 <= index <= len(workouts):
-    #         del workouts[index]
-    #     save_data(data)
-    #     refresh_history()
-    #     page.update()
-
     save_button = ft.Button('Сохранить')  # кнопка для сохранения подхода
     cancel_button = ft.Button('Очистить', visible=False, color=ft.Colors.GREY)  # кнопка для очистки полей ввода
 
-    # def fill_from_history(e):  # функция заполнения полей из истории
-    #     index = e.control.data  # получаем индекс выбранного подхода
-    #     w = workouts[index]  # получаем данные подхода по индексу
-    #     exercise.value = w['exercise']  # заполняем поле упражнения
-    #     weight.value = w['weight']  # заполняем поле веса
-    #     reps.value = w['reps']  # заполняем поле повторений
-    #     cancel_button.visible = True  # делаем кнопку "Очистить" видимой
-    #     page.update()  # обновляем страницу после заполнения полей
-
-    # def cancel_edit(e):  # функция очистки полей ввода
-    #     exercise.value = ''  # очищаем поле упражнения
-    #     weight.value = ''  # очищаем поле веса
-    #     reps.value = ''  # очищаем поле повторений
-    #     cancel_button.visible = False  # скрываем кнопку "Очистить"
-    #     page.update()
-
-
-    # def add_workout(e):  # функция добавления нового подхода
-    #     if not exercise.value:  # проверяем, что поле упражнения не пустое
-    #         return
-    #     record = {
-    #         'day_id': current_day_id,  # актуальный день
-    #         'exercise': exercise.value,
-    #         'weight': weight.value,
-    #         'reps': reps.value
-    #     }
-    #     workouts.append(record)  # добавляем новый подход в список
-    #     save_data(data)  # сохраняем данные в файл
-    #     exercise.value = ''  # очищаем поле упражнения
-    #     weight.value = ''  # очищаем поле веса
-    #     reps.value = ''  # очищаем поле повторений
-    #     cancel_button.visible = False  # скрываем кнопку "Очистить"
-    #     refresh_history()  # обновляем историю после добавления нового подхода
-    #     if auto_rest_switch.value:
-    #         start_rest_timer()  # автоматический запуск таймера после подхода
-
-
-    # save_button.on_click = add_workout  # назначаем функцию добавления подхода на кнопку "Сохранить"
-    # cancel_button.on_click = cancel_edit  # назначаем функцию очистки полей на кнопку "Очистить"
 
     # --- Добавляем главный экран ---
     def build_main_view():
@@ -290,17 +266,6 @@ def main(page: ft.Page):
                         ft.Row([start_workout_button, finish_workout_button]),
                         ft.Divider(),
                         tabs,
-                        # ft.Text('Добавить подход', size=24, weight='bold'),
-                        # exercise,
-                        # weight,
-                        # reps,
-                        # ft.Row([save_button, cancel_button]),
-                        # ft.Divider(),
-                        # ft.Text('Таймер отдыха', size=24, weight='bold'),
-                        # auto_rest_switch,
-                        # timer_display,
-                        # timer_picker,
-                        # ft.Button('Старт', on_click=start_timer),
                         ft.Divider(),
                             ],
                             spacing=10,
@@ -496,7 +461,7 @@ def main(page: ft.Page):
                 ft.Text('Время отдыха', size=18, weight='bold'),
                 auto_rest_switch,
                 timer_display,
-                timer_picker,
+                rest_picker_row,
                 ft.Button('Старт', on_click=start_timer),
                 ft.Divider(),
                 ft.Text('Новый подход', size=18, weight='bold'),
