@@ -365,9 +365,11 @@ def main(page: ft.Page):
 
 
         def save_approach(e):
+            import uuid
             # count = sum(1 for w in workouts if w.get('day_id') == day_id and w.get('exercise') == ex_name) + 1
 
             record = {
+                'id': str(uuid.uuid4()),
                 'day_id': day_id,
                 'exercise': ex_name,
                 'weight': weight_field.value,
@@ -383,6 +385,14 @@ def main(page: ft.Page):
             comment_field.value = ''
             rebuild_history()
             start_rest_timer()
+
+        def remove_approach(rec_id):
+            for i, w in enumerate(workouts):
+                if w.get('id') == rec_id:
+                    del workouts[i]
+                    break
+            save_data(data)
+            rebuild_history()
 
         def rebuild_history():
             history_column.controls.clear()
@@ -419,11 +429,32 @@ def main(page: ft.Page):
                     num = total - (i - 1)
                     comment = w.get('comment', '')
                     comment_str = f" - {comment}" if comment else ''
-                    history_column.controls.append(
-                        ft.Text(
-                            f" #{num} {w.get('weight', '')} кг {w.get('reps', '')}{comment_str}"
+
+                    rec_id = w.get('id')
+
+                    delete_icon = ft.IconButton(
+                            icon=ft.Icons.DELETE,
+                            icon_color=ft.Colors.RED,
+                            visible=False,
+                            on_click=lambda e, rid=rec_id: remove_approach(rid),
                         )
+
+                    title=ft.ListTile(
+                        title=ft.Text(
+                            f" #{num} {w.get('weight', '')} кг {w.get('reps', '')}{comment_str}"
+                        ),
+                        trailing=delete_icon
                     )
+
+                    container = ft.Container(
+                        content=title,
+                        on_hover=lambda e, icon=delete_icon:(
+                            setattr(icon, 'visible', e.data),
+                            page.update(),
+                        ),
+                    )
+                    history_column.controls.append(container)
+
             page.update()
 
         # --- Поля ввода ---
@@ -431,7 +462,7 @@ def main(page: ft.Page):
         reps_field = ft.TextField(label='Повторения', keyboard_type=ft.KeyboardType.NUMBER, expand=1)
         comment_field = ft.TextField(label='Комментарий', expand=2)
         count_text = ft.Text('Подходов выполнено: 0', size=16, weight='bold')
-        history_column = ft.Column()
+        history_column = ft.ListView(spacing=5, height=300)
 
         add_button = ft.Button('Добавить подход', on_click=save_approach)
 
@@ -453,10 +484,6 @@ def main(page: ft.Page):
                     count_text,
                 ], alignment=ft.MainAxisAlignment.CENTER),
                 ft.Divider(),
-                # ft.Text('Время отдыха', size=18, weight='bold'),
-                # rest_picker_row,
-                # ft.Button('Старт', on_click=start_timer),
-                # ft.Divider(),
                 ft.Text('Новый подход', size=18, weight='bold'),
                 ft.Row([weight_field, reps_field]),
                 comment_field,
@@ -464,7 +491,7 @@ def main(page: ft.Page):
                 ft.Divider(),
                 ft.Text('История', size=18, weight='bold'),
                 history_column,
-            ],
+                ],
             spacing=10,
             scroll=ft.ScrollMode.AUTO,
             expand=True
