@@ -205,7 +205,7 @@ def main(page: ft.Page):
 
     def build_muscle_picker_view(day_id):
         # Собираем уникальные группы мышц из базы
-        muscles = sorted(set(ex.get('muscle', '') for ex in exercise_base if ex.get('muscle')))
+        muscles = sorted({ex.get('muscle', '') for ex in exercise_base if ex.get('muscle')})
 
         def go_to_muscle(e, m):
             asyncio.create_task(page.push_route(f"/add-to/{day_id}/{m}"))
@@ -300,14 +300,15 @@ def main(page: ft.Page):
     def build_exercise_view(day_id, ex_name):
         rest_seconds = 30
         rest_task = None
+        is_running = False
 
-        # auto_rest_switch = ft.Switch(label='Автостарт отдыха', value=True, visible=False)
-
-        rest_is_runing = False
+        def format_secs(sec):
+            mins, s = divmod(int(sec), 60)
+            return f"{mins:02d}:{s:02d}"
 
         def decrease_rest(e):
             nonlocal rest_seconds
-            if rest_is_runing:
+            if is_running:
                 return
             if rest_seconds > 30:
                 rest_seconds -= 30
@@ -316,13 +317,13 @@ def main(page: ft.Page):
 
         def increase_rest(e):
             nonlocal rest_seconds
-            if rest_is_runing:
+            if is_running:
                 return
             rest_seconds += 30
             rest_seconds_text.value = format_time(rest_seconds)
             page.update()
 
-        rest_seconds_text = ft.Text(f"{rest_seconds}", size=24, weight='bold')
+        rest_seconds_text = ft.Text(f"{format_time(rest_seconds)}", size=24, weight='bold')
         rest_picker_row = ft.Row(
             controls=[
                 ft.IconButton(icon=ft.Icons.REMOVE, on_click=decrease_rest, icon_size=20, visual_density=ft.VisualDensity.COMPACT),
@@ -336,35 +337,35 @@ def main(page: ft.Page):
 
 
         async def countdown():
-            nonlocal rest_seconds, rest_is_runing
-            rest_is_runing = True
+            nonlocal rest_seconds, is_running
+            is_running = True
             remaining = rest_seconds
             rest_seconds_text.value = format_time(remaining)
             page.update()
+
             while remaining > 0:
                 rest_seconds_text.value = format_time(remaining)
                 page.update()
                 await asyncio.sleep(1)
                 remaining -= 1
+
             rest_seconds_text.value = '00:00'
             await sound_fta.play()
             rest_seconds_text.value = format_time(rest_seconds)
-            rest_is_runing = False
+            is_running = False
             page.update()
 
 
         def start_rest_timer():
-            nonlocal rest_task
+            nonlocal rest_task, is_running
             if rest_task is not None:
                 rest_task.cancel()
+            is_running = False
             rest_task = page.run_task(countdown)
 
 
-        def start_timer():
-            start_rest_timer()
-
         def save_approach(e):
-            count = sum(1 for w in workouts if w.get('day_id') == day_id and w.get('exercise') == ex_name) + 1
+            # count = sum(1 for w in workouts if w.get('day_id') == day_id and w.get('exercise') == ex_name) + 1
 
             record = {
                 'day_id': day_id,
@@ -446,13 +447,16 @@ def main(page: ft.Page):
         # --- Содержимое ---
         content = ft.Column(
             controls=[
-                count_text,
+                ft.Row([
+                    rest_picker_row,
+                    ft.Container(width=30),
+                    count_text,
+                ], alignment=ft.MainAxisAlignment.CENTER),
                 ft.Divider(),
-                ft.Text('Время отдыха', size=18, weight='bold'),
-                # auto_rest_switch,
-                rest_picker_row,
-                ft.Button('Старт', on_click=start_timer),
-                ft.Divider(),
+                # ft.Text('Время отдыха', size=18, weight='bold'),
+                # rest_picker_row,
+                # ft.Button('Старт', on_click=start_timer),
+                # ft.Divider(),
                 ft.Text('Новый подход', size=18, weight='bold'),
                 ft.Row([weight_field, reps_field]),
                 comment_field,
