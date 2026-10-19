@@ -31,10 +31,6 @@ def main(page: ft.Page):
     training_days = data["training_days"]
     workouts = data["workouts"]
 
-    # --- Поля для упражнений ---
-    exercise = ft.TextField(label='Упражнение', hint_text='Введи упражнение')
-    weight = ft.TextField(label='Вес (кг)', keyboard_type=ft.KeyboardType.NUMBER)
-    reps = ft.TextField(label='Повторения', keyboard_type=ft.KeyboardType.NUMBER)
 
     # --- Общий счетчик тренировки ---
     workout_seconds = 0  # секунд по умолчанию
@@ -42,10 +38,6 @@ def main(page: ft.Page):
     workout_timer_text = ft.Text('00:00', size=36, weight='bold', color=ft.Colors.GREEN)  # отображение таймера тренировки
     start_workout_button = ft.Button('Стартуем')
     finish_workout_button = ft.Button('ОстановОчка', color=ft.Colors.RED, visible=False)
-
-
-    # --- Таймер отдыха ---
-    rest_seconds = 5  # секунд по умолчанию
 
 
     day_exercises_list = {
@@ -93,42 +85,8 @@ def main(page: ft.Page):
         mins, secs = divmod(int(seconds), 60)  # форматируем время в минуты и секунды
         return f"{mins:02d}:{secs:02d}"
 
-    timer_display = ft.Text(format_time(rest_seconds), size=36, weight='bold')  # отображение таймера
-    rest_task = None  # переменная для хранения задачи таймера отдыха
+
     sound_fta = fta.Audio(src='beep.mp3', release_mode=fta.ReleaseMode.STOP,)
-    auto_rest_switch = ft.Switch(label='Автостарт отдыха', value=True,)
-    # timer_picker = ft.CupertinoTimerPicker(
-    #     value=rest_seconds,  # начальное значение таймера
-    #     mode=ft.CupertinoTimerPickerMode.MINUTE_SECONDS,  # режим отображения минут и секунд
-    #     on_change=lambda e: update_picker_value(e),  # обработчик изменения значения таймера
-    # )  
-
-    def decrease_rest(e):
-        nonlocal rest_seconds
-        if rest_seconds > 30:
-            rest_seconds -= 30
-            timer_display.value = format_time(rest_seconds)
-            rest_seconds_text.value = f"{rest_seconds} сек"
-            page.update()
-
-
-    def increase_rest(e):
-        nonlocal rest_seconds
-        rest_seconds += 30
-        timer_display.value = format_time(rest_seconds)
-        rest_seconds_text.value = f"{rest_seconds} сек"
-        page.update()
-
-    rest_seconds_text = ft.Text(f"{rest_seconds} сек", size=18, weight='bold')
-
-    rest_picker_row = ft.Row(
-        controls=[
-            ft.IconButton(icon=ft.Icons.REMOVE, on_click=decrease_rest),
-            rest_seconds_text,
-            ft.IconButton(icon=ft.Icons.ADD, on_click=increase_rest),
-        ],
-        alignment = ft.MainAxisAlignment.CENTER,
-    )
 
 
     # --- Общий счетчик тренировки (асинхронный) ---
@@ -140,19 +98,6 @@ def main(page: ft.Page):
             await asyncio.sleep(1)  # ждем 1 секунду
             workout_seconds += 1  # увеличиваем счетчик тренировки на 1 секунду
 
-    # --- Функция обратного отсчета (асинхронная) ---
-    async def countdown():
-        nonlocal rest_seconds  # используем nonlocal для изменения переменной из внешней области видимости
-        remaining = rest_seconds  # оставшееся время в секундах
-        while remaining > 0:
-            timer_display.value = format_time(remaining)  # обновляем отображение таймера
-            page.update()  # обновляем страницу
-            await asyncio.sleep(1)  # ждем 1 секунду
-            remaining -= 1
-        timer_display.value = '00:00'  # обновляем отображение таймера после завершения обратного отсчета
-        page.update()  # обновляем страницу
-        await sound_fta.play()  # воспроизводим звуковой сигнал
-        
 
     # --- Функция запуска таймера тренировки ---
     def start_workout(e):
@@ -184,20 +129,6 @@ def main(page: ft.Page):
     start_workout_button.on_click = start_workout
     finish_workout_button.on_click = finish_workout
 
-    def start_rest_timer():
-        nonlocal rest_task
-        if rest_task is not None:
-            rest_task.cancel()
-        rest_task = page.run_task(countdown)
-
-
-    def start_timer(e):
-        nonlocal rest_task
-        if rest_task is not None:
-            rest_task.cancel()  # отменяем предыдущую задачу таймера, если она существует
-        start_rest_timer()
-        rest_task = page.run_task(countdown)  # запускаем функцию обратного отсчета в отдельной задаче, чтобы не блокировать интерфейс пользователя
-
 
     def close_dialog(dialog):  # функция для закрытия диалогового окна
         dialog.open = False  # закрываем диалоговое окно
@@ -206,7 +137,7 @@ def main(page: ft.Page):
     def remove_exercise_from_day(day_id, ex_index):
         for day in training_days:
             if day['id'] == day_id:
-                if 0 <= ex_index <= len(day['exercises']):
+                if 0 <= ex_index < len(day['exercises']):
                     day['exercises'].pop(ex_index)
                 break
         save_data(data)
@@ -248,10 +179,6 @@ def main(page: ft.Page):
         page.update()
 
 
-    save_button = ft.Button('Сохранить')  # кнопка для сохранения подхода
-    cancel_button = ft.Button('Очистить', visible=False, color=ft.Colors.GREY)  # кнопка для очистки полей ввода
-
-
     # --- Добавляем главный экран ---
     def build_main_view():
         return ft.View(
@@ -285,7 +212,7 @@ def main(page: ft.Page):
 
         controls = [
             ft.AppBar(
-                title=ft.Text("Выберите группу мыщц"),
+                title=ft.Text("Выберите группу мышц"),
                 leading=ft.IconButton(
                     ft.Icons.ARROW_BACK,
                     on_click=lambda e: asyncio.create_task(page.push_route("/")),),),]
@@ -371,6 +298,70 @@ def main(page: ft.Page):
 
 
     def build_exercise_view(day_id, ex_name):
+        rest_seconds = 30
+        rest_task = None
+
+        # auto_rest_switch = ft.Switch(label='Автостарт отдыха', value=True, visible=False)
+
+        rest_is_runing = False
+
+        def decrease_rest(e):
+            nonlocal rest_seconds
+            if rest_is_runing:
+                return
+            if rest_seconds > 30:
+                rest_seconds -= 30
+                rest_seconds_text.value = format_time(rest_seconds)
+                page.update()
+
+        def increase_rest(e):
+            nonlocal rest_seconds
+            if rest_is_runing:
+                return
+            rest_seconds += 30
+            rest_seconds_text.value = format_time(rest_seconds)
+            page.update()
+
+        rest_seconds_text = ft.Text(f"{rest_seconds}", size=24, weight='bold')
+        rest_picker_row = ft.Row(
+            controls=[
+                ft.IconButton(icon=ft.Icons.REMOVE, on_click=decrease_rest, icon_size=20, visual_density=ft.VisualDensity.COMPACT),
+                rest_seconds_text,
+                ft.IconButton(icon=ft.Icons.ADD, on_click=increase_rest, icon_size=20, visual_density=ft.VisualDensity.COMPACT),
+            ],
+            alignment = ft.MainAxisAlignment.CENTER,
+            spacing=5,
+            tight=True
+        )
+
+
+        async def countdown():
+            nonlocal rest_seconds, rest_is_runing
+            rest_is_runing = True
+            remaining = rest_seconds
+            rest_seconds_text.value = format_time(remaining)
+            page.update()
+            while remaining > 0:
+                rest_seconds_text.value = format_time(remaining)
+                page.update()
+                await asyncio.sleep(1)
+                remaining -= 1
+            rest_seconds_text.value = '00:00'
+            await sound_fta.play()
+            rest_seconds_text.value = format_time(rest_seconds)
+            rest_is_runing = False
+            page.update()
+
+
+        def start_rest_timer():
+            nonlocal rest_task
+            if rest_task is not None:
+                rest_task.cancel()
+            rest_task = page.run_task(countdown)
+
+
+        def start_timer():
+            start_rest_timer()
 
         def save_approach(e):
             count = sum(1 for w in workouts if w.get('day_id') == day_id and w.get('exercise') == ex_name) + 1
@@ -390,8 +381,7 @@ def main(page: ft.Page):
             reps_field.value = ''
             comment_field.value = ''
             rebuild_history()
-            if auto_rest_switch.value:
-                start_rest_timer()
+            start_rest_timer()
 
         def rebuild_history():
             history_column.controls.clear()
@@ -406,7 +396,7 @@ def main(page: ft.Page):
                 by_date.setdefault(d, []).append(w)
 
             total = len(entries)
-            count_text.value = f"Подходов выполнено: {total}"
+            count_text.value = f"Выполнено: {total}"
 
             # Сортируем даты по убыванию
             for date in sorted(by_date.keys(), reverse=True):
@@ -438,8 +428,8 @@ def main(page: ft.Page):
         # --- Поля ввода ---
         weight_field = ft.TextField(label='Вес (кг)', keyboard_type=ft.KeyboardType.NUMBER, expand=1)
         reps_field = ft.TextField(label='Повторения', keyboard_type=ft.KeyboardType.NUMBER, expand=1)
-        comment_field = ft.TextField(label='Коментарий', expand=2)
-        count_text = ft.Text('Подходов выполено: 0', size=16, weight='bold')
+        comment_field = ft.TextField(label='Комментарий', expand=2)
+        count_text = ft.Text('Подходов выполнено: 0', size=16, weight='bold')
         history_column = ft.Column()
 
         add_button = ft.Button('Добавить подход', on_click=save_approach)
@@ -459,8 +449,7 @@ def main(page: ft.Page):
                 count_text,
                 ft.Divider(),
                 ft.Text('Время отдыха', size=18, weight='bold'),
-                auto_rest_switch,
-                timer_display,
+                # auto_rest_switch,
                 rest_picker_row,
                 ft.Button('Старт', on_click=start_timer),
                 ft.Divider(),
@@ -481,7 +470,7 @@ def main(page: ft.Page):
         rebuild_history()
 
         return ft.View(
-            route=f"/add-to/{day_id}/{ex_name}",
+            route=f"/exercise/{day_id}/{ex_name}",
             padding=0,
             controls=[appbar, content]
         )
