@@ -246,16 +246,14 @@
             "id": "day_1",
             "name": "Понедельник",
             "exercises": [
-                "Жим гантелей сидя",
-                "Кроссовер на блоках"
+                "Жим лёжа на ровной скамье",
+                "Отжимания от пола"
             ]
         },
         {
             "id": "day_2",
             "name": "Среда",
-            "exercises": [
-                "Тяга верхнего блока к груди"
-            ]
+            "exercises": []
         },
         {
             "id": "day_3",
@@ -263,138 +261,5 @@
             "exercises": []
         }
     ],
-    "workouts": [
-        {
-            "day": "Понедельник - Грудь",
-            "exercise": "Жим лежа",
-            "weight": "60",
-            "reps": "9"
-        },
-        {
-            "day_id": "day_2",
-            "exercise": "Молотки",
-            "weight": "10",
-            "reps": "18"
-        },
-        {
-            "day_id": "day_3",
-            "exercise": "Ягодичный мост",
-            "weight": "100",
-            "reps": "8",
-            "comment": "нормально",
-            "date": "2026-10-15"
-        },
-        {
-            "day_id": "day_3",
-            "exercise": "Ягодичный мост",
-            "weight": "100",
-            "reps": "8",
-            "comment": "норм",
-            "date": "2026-10-15"
-        },
-        {
-            "day_id": "day_3",
-            "exercise": "Ягодичный мост",
-            "weight": "90",
-            "reps": "12",
-            "comment": "Норм",
-            "date": "2026-10-16"
-        },
-        {
-            "day_id": "day_1",
-            "exercise": "Жим гантелей сидя",
-            "weight": "12.5",
-            "reps": "12",
-            "comment": "",
-            "date": "2026-10-16"
-        },
-        {
-            "day_id": "day_2",
-            "exercise": "Тяга верхнего блока к груди",
-            "weight": "63.5",
-            "reps": "12",
-            "comment": "",
-            "date": "2026-10-16"
-        },
-        {
-            "day_id": "day_1",
-            "exercise": "Жим гантелей сидя",
-            "weight": "10",
-            "reps": "15",
-            "comment": "",
-            "date": "2026-10-16"
-        },
-        {
-            "day_id": "day_1",
-            "exercise": "Жим гантелей сидя",
-            "weight": "10",
-            "reps": "10",
-            "comment": "",
-            "date": "2026-10-16"
-        },
-        {
-            "day_id": "day_1",
-            "exercise": "Жим гантелей сидя",
-            "weight": "12",
-            "reps": "10",
-            "comment": "",
-            "date": "2026-10-16"
-        },
-        {
-            "day_id": "day_1",
-            "exercise": "Жим гантелей сидя",
-            "weight": "10",
-            "reps": "10",
-            "comment": "",
-            "date": "2026-10-16"
-        },
-        {
-            "day_id": "day_1",
-            "exercise": "Жим гантелей сидя",
-            "weight": "10",
-            "reps": "10",
-            "comment": "",
-            "date": "2026-10-16"
-        },
-        {
-            "day_id": "day_1",
-            "exercise": "Кроссовер на блоках",
-            "weight": "43",
-            "reps": "6",
-            "comment": "",
-            "date": "2026-10-19"
-        },
-        {
-            "day_id": "day_1",
-            "exercise": "Кроссовер на блоках",
-            "weight": "36",
-            "reps": "10",
-            "comment": "",
-            "date": "2026-10-19"
-        },
-        {
-            "day_id": "day_1",
-            "exercise": "Кроссовер на блоках",
-            "weight": "36",
-            "reps": "12",
-            "comment": "",
-            "date": "2026-10-19"
-        },
-        {
-            "day_id": "day_1",
-            "exercise": "Кроссовер на блоках",
-            "weight": "36",
-            "reps": "10",
-            "comment": "",
-            "date": "2026-10-19"
-        },
-        {
-            "day_id": "day_1",
-            "exercise": "Кроссовер на блоках",
-            "weight": "30",
-            "reps": "10",
-            "comment": "",
-            "date": "2026-10-19"
-        }
-    ]
+    "workouts": []
 }
