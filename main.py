@@ -185,7 +185,16 @@ def main(page: ft.Page):
             route="/",
             padding=0,
             controls=[
-                ft.AppBar(title=ft.Text("Тренировки")),
+                ft.AppBar(
+                    title=ft.Text("Тренировки"),
+                    actions=[
+                        ft.IconButton(
+                        icon=ft.Icons.LIBRARY_BOOKS,
+                        tooltip='База упражнений',
+                        on_click=lambda e:asyncio.create_task(page.push_route("/base")),
+                        ),
+                    ],
+                ),
                 ft.Column(
                     controls=[
                         ft.Text('Время:', size=24, weight='bold'),
@@ -199,8 +208,134 @@ def main(page: ft.Page):
                             scroll=ft.ScrollMode.AUTO,
                             expand=True,
                         ),
-                    ]
+                    ],
                 )
+                    
+                
+
+    def build_base_view():
+        # Функция для обновления списка на экране
+        def refresh_base_list():
+            base_list.controls.clear()
+            # Группируем упражнения по мышцам
+            by_muscle = {}
+            for idx, ex in enumerate(exercise_base):
+                muscle = ex.get('muscle', 'Без группы')
+                by_muscle.setdefault(muscle, []).append((idx, ex))
+
+            for muscle, items in sorted(by_muscle.items()):
+                base_list.controls.append(
+                    ft.Text(muscle, size=18, weight='bold', color=ft.Colors.PRIMARY)
+                )
+                for idx, ex in items:
+                    base_list.controls.append(
+                        ft.ListTile(
+                            title=ft.Text(ex['name']),
+                            subtitle=ft.Text(ex.get('description', '')),
+                            trailing=ft.Row(
+                                [
+                                    ft.IconButton(
+                                        icon=ft.Icons.EDIT,
+                                        on_click=lambda e, i=idx: open_edit_exercise(i),
+                                    ),
+                                ],
+                                tight=True
+                            ),
+                        )
+                    )
+                page.update()
+
+        def delete_exercise(idx):
+            if 0 <= idx < len(exercise_base):
+                del exercise_base[idx]
+                save_data(data)
+                refresh_base_list()
+
+        def open_edit_exercise(idx):
+            ex = exercise_base[idx]
+            name_field = ft.TextField(label='Название', value=ex.get('name', ''))
+            muscle_field = ft.TextField(label='Группа мышц', value=ex.get('muscle', ''))
+            desc_field = ft.TextField(label='Описание', value=ex.get('description', ''), multiline=True)
+
+            def save_edit(e):
+                if not name_field.value:
+                    return
+                exercise_base[idx] = {
+                    'name': name_field.value,
+                    'muscle': muscle_field.value,
+                    'description': desc_field.value
+                }
+                save_data(data)
+                page.pop_dialog()
+                refresh_base_list()
+
+            dialog = ft.AlertDialog(
+                title='Редактировать упражнение',
+                content=ft.Column([name_field, muscle_field, desc_field], tight=True),
+                actions=[ft.TextButton('Сохранить', on_click=save_edit),
+                         ft.TextButton('Отмена', on_click=lambda e: page.pop_dialog()),
+                         ],
+            )
+            page.show_dialog(dialog)
+
+        def open_add_exercise(e):
+            name_field = ft.TextField(label='Название')
+            muscle_field = ft.TextField(label='Группа мышц')
+            desc_field = ft.TextField(label='Описание', multiline=True)
+
+            def save_new(e):
+                if not name_field.value:
+                    return
+                exercise_base.append({
+                    'name': name_field.value,
+                    'muscle': muscle_field.value,
+                    'description': desc_field.value,
+                })
+                save_data(data)
+                page.pop_dialog()
+                refresh_base_list()
+
+            dialog = ft.AlertDialog(
+                title=ft.Text('Новое упражнение'),
+                content=ft.Column([name_field, muscle_field, desc_field], tight=True),
+                actions=[
+                    ft.TextButton('Добавить', on_click=save_new),
+                    ft.TextButton('Отмена', on_click=lambda e: page.pop_dialog()),
+                ],
+            )
+            page.show_dialog(dialog)
+        base_list = ft.Column(scroll=ft.ScrollMode.AUTO, expand=True)
+
+        view = ft.View(
+            route='/base',
+            padding=0,
+            controls=[
+                ft.AppBar(
+                    title=ft.Text('База упражнений'),
+                    leading=ft.IconButton(
+                        icon=ft.Icons.ARROW_BACK,
+                        on_click=lambda e: asyncio.create_task(page.push_route("/")),
+                    ),
+                ),
+                ft.Column(
+                    controls=[
+                        ft.Row(
+                            [
+                                ft.Text('Все упражнения', size=20, weight='bold'),
+                                ft.Button('Добавить', on_click=open_add_exercise),
+                            ],
+                            alignment= ft.MainAxisAlignment.SPACE_BETWEEN,
+                        ),
+                        ft.Divider(),
+                        base_list,
+                    ],
+                    expand=True,
+                    spacing=10,
+                ),
+            ],
+        )
+        refresh_base_list()
+        return view
  
 
     def build_muscle_picker_view(day_id):
@@ -523,6 +658,8 @@ def main(page: ft.Page):
             day_id = parts[2]
             ex_name = parts[3]
             page.views.append(build_exercise_view(day_id, ex_name))
+        elif route == "/base":
+            page.views.append(build_base_view())
         else:
             page.views.append(build_main_view())
             refresh_exercises()
