@@ -238,6 +238,11 @@ def main(page: ft.Page):
                                         icon=ft.Icons.EDIT,
                                         on_click=lambda e, i=idx: open_edit_exercise(i),
                                     ),
+                                    ft.IconButton(
+                                        icon=ft.Icons.DELETE,
+                                        icon_color=ft.Colors.RED,
+                                        on_click=lambda e, i=idx: delete_exercise(i),
+                                    ),
                                 ],
                                 tight=True
                             ),
@@ -246,10 +251,33 @@ def main(page: ft.Page):
                 page.update()
 
         def delete_exercise(idx):
-            if 0 <= idx < len(exercise_base):
+            if not (0 <= idx < len(exercise_base)):
+                return
+
+            ex_name = exercise_base[idx]['name']
+
+            def confirm_delete(e):
+                # Удаляем упражнение из базы
                 del exercise_base[idx]
+                # Заодно убираем его из всех тренировочных дней
+                for day in training_days:
+                    if ex_name in day.get('exercise', []):
+                        day['exercise'].remove(ex_name)
                 save_data(data)
+                page.pop_dialog()
                 refresh_base_list()
+
+            dialog = ft.AlertDialog(
+                title=ft.Text('Удалить упражнение'),
+                content=ft.Text(f'"{ex_name}" будет удалено из базы и из всех тренировочных дней. Это действие нельзя отменить'),
+                actions=[
+                    ft.TextButton('Отмена', on_click=lambda e: page.pop_dialog()),
+                    ft.TextButton('Удалить', on_click=confirm_delete, style=ft.ButtonStyle(color=ft.Colors.RED),
+                    ),
+                ],
+            )
+            page.show_dialog(dialog)
+
 
         def open_edit_exercise(idx):
             ex = exercise_base[idx]
