@@ -609,12 +609,20 @@ def main(page: ft.Page):
                         trailing=delete_icon
                     )
 
+                    # Функция заполнения полей по клику
+                    def fill_fields(e, w=w):
+                        weight_field.value = w.get('weight', '')
+                        reps_field.value = w.get('reps', '')
+                        comment_field.value = w.get('comment', '')
+                        page.update()
+
                     container = ft.Container(
                         content=title,
                         on_hover=lambda e, icon=delete_icon:(
                             setattr(icon, 'visible', e.data),
                             page.update(),
                         ),
+                        on_click=fill_fields,
                     )
                     history_column.controls.append(container)
 
