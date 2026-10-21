@@ -1,9 +1,10 @@
 {
     "exercise_base": [
         {
-            "name": "Жим лёжа на ровной скамье",
+            "name": "Жим штанги лёжа на ровной скамье",
             "muscle": "Грудь",
-            "description": "Базовое упражнение"
+            "description": "Базовое упражнение",
+            "image": "images/Barbell_bench_press.png"
         },
         {
             "name": "Жим гантелей на наклонной скамье",
@@ -19,11 +20,6 @@
             "name": "Кроссовер на блоках",
             "muscle": "Грудь",
             "description": "Изолированное упражнение"
-        },
-        {
-            "name": "Жим в тренажёре Хаммер",
-            "muscle": "Грудь",
-            "description": "Базовое упражнение"
         },
         {
             "name": "Становая тяга",
@@ -244,14 +240,64 @@
         },
         {
             "id": "day_2",
-            "name": "Среда",
+            "name": "Вторник",
             "exercises": []
         },
         {
             "id": "day_3",
+            "name": "Среда",
+            "exercises": []
+        },
+        {
+            "id": "day_4",
+            "name": "Четверг",
+            "exercises": [
+                "Планка"
+            ]
+        },
+        {
+            "id": "day_5",
             "name": "Пятница",
+            "exercises": []
+        },
+        {
+            "id": "day_6",
+            "name": "Суббота",
+            "exercises": []
+        },
+        {
+            "id": "day_7",
+            "name": "Воскресенье",
             "exercises": []
         }
     ],
-    "workouts": []
+    "workouts": [
+        {
+            "id": "4900be51-30dc-4cd4-a1ad-94e6f7436c1f",
+            "day_id": "day_1",
+            "exercise": "Сведение рук на тренажере бабочка",
+            "weight": "36",
+            "reps": "10",
+            "comment": "",
+            "date": "2026-10-21"
+        },
+        {
+            "id": "a9f2decd-ca7f-4f8c-badb-4db3ef6ff9f2",
+            "day_id": "day_4",
+            "exercise": "Планка",
+            "weight": "",
+            "reps": "40",
+            "comment": "",
+            "date": "2026-10-21"
+        },
+        {
+            "id": "746ae7eb-45d2-4fbc-b22d-7a88e58fc1ad",
+            "day_id": "day_1",
+            "exercise": "Жим штанги лёжа на ровной скамье",
+            "weight": "60",
+            "reps": "8",
+            "comment": "",
+            "date": "2026-10-21"
+        }
+    ]
 }

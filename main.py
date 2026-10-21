@@ -13,7 +13,7 @@ def load_data():
         with open(DATA_FILE, 'r', encoding='utf-8') as f:
             return json.load(f)
     return {
-        "exercises_base": [],
+        "exercise_base": [],
         "training_days": [],
         "workouts": []
     }
@@ -465,6 +465,9 @@ def main(page: ft.Page):
         rest_task = None
         is_running = False
 
+        ex_info = next((ex for ex in exercise_base if ex.get('name')==ex_name), None)
+        image_src = ex_info.get('image') if ex_info else None
+
         def format_secs(sec):
             mins, s = divmod(int(sec), 60)
             return f"{mins:02d}:{s:02d}"
@@ -646,9 +649,40 @@ def main(page: ft.Page):
             ),
         )
 
+        def open_image_fullscreen(src):
+            def close_img(e):
+                page.pop_dialog()
+
+            dialog = ft.AlertDialog(
+                content=ft.ListView(
+                    controls=[
+                        ft.Image(
+                            src=src,
+                            fit=ft.BoxFit.CONTAIN,
+                            width=400,
+                            height=400,
+                    ),
+                    ],
+                    width=420,
+                    height=420,
+                ),
+                actions=[ft.TextButton('Закрыть', on_click=close_img)],
+            )
+            page.show_dialog(dialog)
+
         # --- Содержимое ---
         content = ft.Column(
             controls=[
+                ft.GestureDetector(
+                    on_tap=lambda e: open_image_fullscreen(image_src),
+                    content=ft.Image(
+                    src=image_src,
+                    width=300,
+                    height=200,
+                    fit=ft.BoxFit.CONTAIN,
+                    ),
+                ) if image_src else ft.Container(),
+
                 ft.Row([
                     rest_picker_row,
                     ft.Container(width=30),
