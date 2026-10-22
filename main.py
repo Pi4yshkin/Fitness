@@ -607,7 +607,7 @@ def main(page: ft.Page):
                 'reps': reps_field.value,
                 'comment': comment_field.value,
                 'date': datetime.now().strftime('%Y-%m-%d'),
-                'timestamp': datetime.now().fromisoformat(),
+                'timestamp': datetime.now().isoformat(),
             }
 
             workouts.append(record)
@@ -658,6 +658,7 @@ def main(page: ft.Page):
 
                 # записи этого дня в обратном порядке
                 day_entries = list(reversed(by_date[date]))
+
                 for i, w in enumerate(day_entries, start=1):
                     num = total - (i - 1)
                     comment = w.get('comment', '')
@@ -668,16 +669,15 @@ def main(page: ft.Page):
                     delete_icon = ft.IconButton(
                             icon=ft.Icons.DELETE,
                             icon_color=ft.Colors.RED,
+                            icon_size=16,
+                            visual_density=ft.VisualDensity.COMPACT,
+                            style=ft.ButtonStyle(
+                                padding=ft.Padding.symmetric(horizontal=4, vertical=0)
+                            ),
                             visible=False,
                             on_click=lambda e, rid=rec_id: remove_approach(rid),
                         )
 
-                    title=ft.ListTile(
-                        title=ft.Text(
-                            f" #{num} {w.get('weight', '')} кг {w.get('reps', '')}{comment_str}"
-                        ),
-                        trailing=delete_icon
-                    )
 
                     # Функция заполнения полей по клику
                     def fill_fields(e, w=w):
@@ -686,14 +686,28 @@ def main(page: ft.Page):
                         comment_field.value = w.get('comment', '')
                         page.update()
 
+                    row_content = ft.Row(
+                                    controls=[
+                                        ft.Text(f" #{num} {w.get('weight', '')} кг x {w.get('reps', '')} {comment_str}",
+                                            size=14,
+                                            expand=True,
+                                        ),
+                                delete_icon,
+                                ],
+                                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                            )
+                    
                     container = ft.Container(
-                        content=title,
-                        on_hover=lambda e, icon=delete_icon:(
-                            setattr(icon, 'visible', e.data),
-                            page.update(),
-                        ),
-                        on_click=fill_fields,
-                    )
+                                    content=row_content,
+                                    on_hover=lambda e, icon=delete_icon: (
+                                    setattr(icon, 'visible', e.data),
+                                    page.update(),
+                                ),
+                                on_click=fill_fields,
+                                padding=ft.Padding.symmetric(horizontal=10, vertical=2),
+                                height=25,
+                            )
                     history_column.controls.append(container)
 
             page.update()
