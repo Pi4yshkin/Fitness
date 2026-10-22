@@ -225,11 +225,6 @@
             "name": "Бёрпи",
             "muscle": "Кардио",
             "description": "Кардио упражнение"
-        },
-        {
-            "name": "Сведение рук на тренажере бабочка",
-            "muscle": "Грудь",
-            "description": "Изолированное на грудные мышцы"
         }
     ],
     "training_days": [
@@ -251,9 +246,7 @@
         {
             "id": "day_4",
             "name": "Четверг",
-            "exercises": [
-                "Планка"
-            ]
+            "exercises": []
         },
         {
             "id": "day_5",
@@ -271,33 +264,5 @@
             "exercises": []
         }
     ],
-    "workouts": [
-        {
-            "id": "4900be51-30dc-4cd4-a1ad-94e6f7436c1f",
-            "day_id": "day_1",
-            "exercise": "Сведение рук на тренажере бабочка",
-            "weight": "36",
-            "reps": "10",
-            "comment": "",
-            "date": "2026-10-21"
-        },
-        {
-            "id": "a9f2decd-ca7f-4f8c-badb-4db3ef6ff9f2",
-            "day_id": "day_4",
-            "exercise": "Планка",
-            "weight": "",
-            "reps": "40",
-            "comment": "",
-            "date": "2026-10-21"
-        },
-        {
-            "id": "746ae7eb-45d2-4fbc-b22d-7a88e58fc1ad",
-            "day_id": "day_1",
-            "exercise": "Жим штанги лёжа на ровной скамье",
-            "weight": "60",
-            "reps": "8",
-            "comment": "",
-            "date": "2026-10-21"
-        }
-    ]
+    "workouts": []
 }

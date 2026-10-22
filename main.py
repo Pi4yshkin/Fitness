@@ -36,8 +36,39 @@ def main(page: ft.Page):
     workout_seconds = 0  # секунд по умолчанию
     workout_running = False  # флаг состояния тренировки
     workout_timer_text = ft.Text('00:00', size=36, weight='bold', color=ft.Colors.GREEN)  # отображение таймера тренировки
+
+    stats_text = ft.Text("Сегодня: 0 подходов, 0 кг", size=20, color=ft.Colors.GREY)  # статистика подходов за тренировочный день
+    
+
     start_workout_button = ft.Button('Стартуем')
     finish_workout_button = ft.Button('ОстановОчка', color=ft.Colors.RED, visible=False)
+
+    stats_reset_time = {'value': None}
+
+
+    def reset_stats(e):
+        stats_reset_time['value'] = datetime.now()
+        stats_text.value = "Сегодня: 0 подходов, 0 кг"
+        page.update()
+
+    # reset_stats_button = ft.TextButton(
+    #     'Сбросить',
+    #     on_click=reset_stats,
+    #     style=ft.ButtonStyle(
+    #         color=ft.Colors.RED,  # цвет текста
+    #         padding=ft.Padding.symmetric(horizontal=8, vertical=0),  # меньше отступов
+    #         text_style=ft.TextStyle(size=12),  # меньше шрифт
+    #         visual_density=ft.VisualDensity.COMPACT,  # компактная плотность
+    #     ),
+    # )
+
+    reset_stats_button = ft.IconButton(
+        icon=ft.Icons.REFRESH,
+        icon_color=ft.Colors.GREY,
+        icon_size=18,
+        tooltip='Сбросить статистику',
+        on_click=reset_stats
+    )
 
 
     day_exercises_list = {
@@ -84,6 +115,39 @@ def main(page: ft.Page):
     def format_time(seconds):
         mins, secs = divmod(int(seconds), 60)  # форматируем время в минуты и секунды
         return f"{mins:02d}:{secs:02d}"
+
+    def update_stats_display():
+        sets, tonnage = get_today_stats()
+        stats_text.value = f"Сегодня: {sets} подходов, {int(tonnage)} кг"
+        page.update()
+
+    def get_today_stats():
+        today = datetime.now().strftime("%Y-%m-%d")
+        reset_at = stats_reset_time['value']
+
+        today_workouts = []
+        for w in workouts:
+            if w.get('date') != today:
+                continue
+            if reset_at is not None:
+                # если сброс был выполнен, берем только подходы, сделанные после него
+                w_time_str = w.get('timestamp')
+                if w_time_str:
+                    w_time = datetime.fromisoformat(w_time_str)
+                    if w_time < reset_at:
+                        continue
+            today_workouts.append(w)
+
+        total_sets = len(today_workouts)
+        total_tonnage = 0
+        for w in today_workouts:
+            try:
+                weight = float(w.get('weight', 0) or 0)
+                reps = int(w.get('reps', 0) or 0)
+                total_tonnage += weight * reps
+            except (ValueError, TypeError):
+                pass
+        return total_sets, total_tonnage
 
 
     sound_fta = fta.Audio(src='beep.mp3', release_mode=fta.ReleaseMode.STOP,)
@@ -199,6 +263,7 @@ def main(page: ft.Page):
                     controls=[
                         ft.Text('Время:', size=24, weight='bold'),
                         workout_timer_text,
+                        ft.Row([stats_text, reset_stats_button]),
                         ft.Row([start_workout_button, finish_workout_button]),
                         ft.Divider(),
                         tabs,
@@ -542,6 +607,7 @@ def main(page: ft.Page):
                 'reps': reps_field.value,
                 'comment': comment_field.value,
                 'date': datetime.now().strftime('%Y-%m-%d'),
+                'timestamp': datetime.now().fromisoformat(),
             }
 
             workouts.append(record)
@@ -549,6 +615,7 @@ def main(page: ft.Page):
             weight_field.value = ''
             reps_field.value = ''
             comment_field.value = ''
+            update_stats_display()
             rebuild_history()
             start_rest_timer()
 
@@ -738,4 +805,5 @@ def main(page: ft.Page):
     on_route_change(None)
     refresh_exercises()
 
+    update_stats_display()
 ft.run(main)
