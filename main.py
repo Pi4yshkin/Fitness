@@ -9,14 +9,30 @@ import flet_audio as fta
 DATA_FILE = "data.json"
 
 def load_data():
+    default_data =  {"exercise_base": [],
+            "training_days": [
+            {"id": "day_1", "name": "Понедельник", "exercises": []},
+            {"id": "day_2", "name": "Вторник", "exercises": []},
+            {"id": "day_3", "name": "Среда", "exercises": []},
+            {"id": "day_4", "name": "Четверг", "exercises": []},
+            {"id": "day_5", "name": "Пятница", "exercises": []},
+            {"id": "day_6", "name": "Суббота", "exercises": []},
+            {"id": "day_7", "name": "Воскресенье", "exercises": []}
+            ],
+            "workouts": []}
+    
     if os.path.exists(DATA_FILE):
-        with open(DATA_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return {
-        "exercise_base": [],
-        "training_days": [],
-        "workouts": []
-    }
+        try:
+            with open(DATA_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                for key in default_data:
+                    if key not in data:
+                        data[key] = default_data[key]
+                return data
+        except (json.JSONDecodeError, ValueError):
+            return default_data
+    return default_data
+    
 
 def save_data(data):
     with open(DATA_FILE, 'w', encoding='utf-8') as f:
@@ -27,9 +43,9 @@ def main(page: ft.Page):
 
 
     data = load_data()
-    exercise_base = data["exercise_base"]
-    training_days = data["training_days"]
-    workouts = data["workouts"]
+    exercise_base = data.get("exercise_base", [])
+    training_days = data.get("training_days", [])
+    workouts = data.get("workouts", [])
 
 
     # --- Общий счетчик тренировки ---
@@ -105,7 +121,7 @@ def main(page: ft.Page):
                             padding=20,)
                         for day in training_days],),],),)
     
-    current_day_id = training_days[0]['id']  # какой сейчас день открыт
+    current_day_id = training_days[0]['id'] if training_days else None  # какой сейчас день открыт
 
     def on_tab_change(e):
         nonlocal current_day_id
@@ -717,7 +733,7 @@ def main(page: ft.Page):
         reps_field = ft.TextField(label='Повторения', keyboard_type=ft.KeyboardType.NUMBER, expand=1)
         comment_field = ft.TextField(label='Комментарий', expand=2)
         count_text = ft.Text('Подходов выполнено: 0', size=16, weight='bold')
-        history_column = ft.ListView(spacing=5, height=300)
+        history_column = ft.Column(spacing=5)
 
         add_button = ft.Button('Добавить подход', on_click=save_approach)
 
@@ -752,7 +768,7 @@ def main(page: ft.Page):
             page.show_dialog(dialog)
 
         # --- Содержимое ---
-        content = ft.Column(
+        content = ft.ListView(
             controls=[
                 ft.GestureDetector(
                     on_tap=lambda e: open_image_fullscreen(image_src),
@@ -779,7 +795,7 @@ def main(page: ft.Page):
                 history_column,
                 ],
             spacing=10,
-            scroll=ft.ScrollMode.AUTO,
+            # scroll=ft.ScrollMode.AUTO,
             expand=True
         )
 
@@ -795,29 +811,34 @@ def main(page: ft.Page):
 
     # --- Роутер ---
     def on_route_change(e):
-        page.views.clear()
+        # page.views.clear()
         route = page.route
+        view = None
+
         if route.startswith("/add-to/"):
             parts = route.split("/")
             day_id = parts[2]
             if len(parts) >= 4 and parts[3]:
-                page.views.append(build_exercise_picker_view(day_id, parts[3]))
+                view = build_exercise_picker_view(day_id, parts[3])
             else:
-                page.views.append(build_muscle_picker_view(day_id))
+                view = build_muscle_picker_view(day_id)
         elif route.startswith("/exercise/"):
             parts = route.split("/")
             day_id = parts[2]
             ex_name = parts[3]
-            page.views.append(build_exercise_view(day_id, ex_name))
+            view = build_exercise_view(day_id, ex_name)
         elif route == "/base":
-            page.views.append(build_base_view())
+            view = build_base_view()
         else:
-            page.views.append(build_main_view())
+            view = build_main_view()
             refresh_exercises()
+        # page.update()
+        page.views.clear()
+        page.views.append(view)
         page.update()
+
     page.on_route_change = on_route_change
     on_route_change(None)
     refresh_exercises()
-
     update_stats_display()
 ft.run(main)

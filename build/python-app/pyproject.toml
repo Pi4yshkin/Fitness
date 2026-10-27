@@ -1,0 +1,13 @@
+[tool.flet]
+# Ваш уникальный Bundle ID (обратный домен). Придумайте свой.
+bundle_id = "com.pi4yshkin.fitness"
+
+[tool.flet.ios]
+# Указываем, что собираем для отладки (установка на свой телефон)
+export_method = "debugging"
+
+[project]
+dependencies = [
+    "flet>=1.0.5",
+    "flet-audio",
+]
