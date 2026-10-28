@@ -54,13 +54,7 @@ def main(page: ft.Page):
     workout_timer_text = ft.Text('00:00', size=36, weight='bold', color=ft.Colors.GREEN)  # отображение таймера тренировки
     start_workout_button = ft.Button('Стартуем')
     finish_workout_button = ft.Button('ОстановОчка', color=ft.Colors.RED, visible=False)
-
     stats_text = ft.Text("Сегодня: 0 подходов, 0 кг", size=20, color=ft.Colors.GREY)  # статистика подходов за тренировочный день
-    
-
-    start_workout_button = ft.Button('Стартуем')
-    finish_workout_button = ft.Button('ОстановОчка', color=ft.Colors.RED, visible=False)
-
     stats_reset_time = {'value': None}
 
 
@@ -69,16 +63,6 @@ def main(page: ft.Page):
         stats_text.value = "Сегодня: 0 подходов, 0 кг"
         page.update()
 
-    # reset_stats_button = ft.TextButton(
-    #     'Сбросить',
-    #     on_click=reset_stats,
-    #     style=ft.ButtonStyle(
-    #         color=ft.Colors.RED,  # цвет текста
-    #         padding=ft.Padding.symmetric(horizontal=8, vertical=0),  # меньше отступов
-    #         text_style=ft.TextStyle(size=12),  # меньше шрифт
-    #         visual_density=ft.VisualDensity.COMPACT,  # компактная плотность
-    #     ),
-    # )
 
     reset_stats_button = ft.IconButton(
         icon=ft.Icons.REFRESH,
