@@ -1,0 +1,6 @@
+build/
+.venv/
+.flet/
+__pycache__/
+*.pyc
+.DS_Store

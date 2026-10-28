@@ -9,14 +9,30 @@ import flet_audio as fta
 DATA_FILE = "data.json"
 
 def load_data():
+    default_data =  {"exercise_base": [],
+            "training_days": [
+            {"id": "day_1", "name": "Понедельник", "exercises": []},
+            {"id": "day_2", "name": "Вторник", "exercises": []},
+            {"id": "day_3", "name": "Среда", "exercises": []},
+            {"id": "day_4", "name": "Четверг", "exercises": []},
+            {"id": "day_5", "name": "Пятница", "exercises": []},
+            {"id": "day_6", "name": "Суббота", "exercises": []},
+            {"id": "day_7", "name": "Воскресенье", "exercises": []}
+            ],
+            "workouts": []}
+    
     if os.path.exists(DATA_FILE):
-        with open(DATA_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return {
-        "exercises_base": [],
-        "training_days": [],
-        "workouts": []
-    }
+        try:
+            with open(DATA_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                for key in default_data:
+                    if key not in data:
+                        data[key] = default_data[key]
+                return data
+        except (json.JSONDecodeError, ValueError):
+            return default_data
+    return default_data
+    
 
 def save_data(data):
     with open(DATA_FILE, 'w', encoding='utf-8') as f:
@@ -27,9 +43,9 @@ def main(page: ft.Page):
 
 
     data = load_data()
-    exercise_base = data["exercise_base"]
-    training_days = data["training_days"]
-    workouts = data["workouts"]
+    exercise_base = data.get("exercise_base", [])
+    training_days = data.get("training_days", [])
+    workouts = data.get("workouts", [])
 
 
     # --- Общий счетчик тренировки ---
@@ -38,6 +54,23 @@ def main(page: ft.Page):
     workout_timer_text = ft.Text('00:00', size=36, weight='bold', color=ft.Colors.GREEN)  # отображение таймера тренировки
     start_workout_button = ft.Button('Стартуем')
     finish_workout_button = ft.Button('ОстановОчка', color=ft.Colors.RED, visible=False)
+    stats_text = ft.Text("Сегодня: 0 подходов, 0 кг", size=20, color=ft.Colors.GREY)  # статистика подходов за тренировочный день
+    stats_reset_time = {'value': None}
+
+
+    def reset_stats(e):
+        stats_reset_time['value'] = datetime.now()
+        stats_text.value = "Сегодня: 0 подходов, 0 кг"
+        page.update()
+
+
+    reset_stats_button = ft.IconButton(
+        icon=ft.Icons.REFRESH,
+        icon_color=ft.Colors.GREY,
+        icon_size=18,
+        tooltip='Сбросить статистику',
+        on_click=reset_stats
+    )
 
 
     day_exercises_list = {
@@ -74,7 +107,7 @@ def main(page: ft.Page):
                             padding=20,)
                         for day in training_days],),],),)
     
-    current_day_id = training_days[0]['id']  # какой сейчас день открыт
+    current_day_id = training_days[0]['id'] if training_days else None  # какой сейчас день открыт
 
     def on_tab_change(e):
         nonlocal current_day_id
@@ -84,6 +117,39 @@ def main(page: ft.Page):
     def format_time(seconds):
         mins, secs = divmod(int(seconds), 60)  # форматируем время в минуты и секунды
         return f"{mins:02d}:{secs:02d}"
+
+    def update_stats_display():
+        sets, tonnage = get_today_stats()
+        stats_text.value = f"Сегодня: {sets} подходов, {int(tonnage)} кг"
+        page.update()
+
+    def get_today_stats():
+        today = datetime.now().strftime("%Y-%m-%d")
+        reset_at = stats_reset_time['value']
+
+        today_workouts = []
+        for w in workouts:
+            if w.get('date') != today:
+                continue
+            if reset_at is not None:
+                # если сброс был выполнен, берем только подходы, сделанные после него
+                w_time_str = w.get('timestamp')
+                if w_time_str:
+                    w_time = datetime.fromisoformat(w_time_str)
+                    if w_time < reset_at:
+                        continue
+            today_workouts.append(w)
+
+        total_sets = len(today_workouts)
+        total_tonnage = 0
+        for w in today_workouts:
+            try:
+                weight = float(w.get('weight', 0) or 0)
+                reps = int(w.get('reps', 0) or 0)
+                total_tonnage += weight * reps
+            except (ValueError, TypeError):
+                pass
+        return total_sets, total_tonnage
 
 
     sound_fta = fta.Audio(src='beep.mp3', release_mode=fta.ReleaseMode.STOP,)
@@ -185,11 +251,21 @@ def main(page: ft.Page):
             route="/",
             padding=0,
             controls=[
-                ft.AppBar(title=ft.Text("Тренировки")),
+                ft.AppBar(
+                    title=ft.Text("Тренировки"),
+                    actions=[
+                        ft.IconButton(
+                        icon=ft.Icons.LIBRARY_BOOKS,
+                        tooltip='База упражнений',
+                        on_click=lambda e:asyncio.create_task(page.push_route("/base")),
+                        ),
+                    ],
+                ),
                 ft.Column(
                     controls=[
                         ft.Text('Время:', size=24, weight='bold'),
                         workout_timer_text,
+                        ft.Row([stats_text, reset_stats_button]),
                         ft.Row([start_workout_button, finish_workout_button]),
                         ft.Divider(),
                         tabs,
@@ -199,8 +275,162 @@ def main(page: ft.Page):
                             scroll=ft.ScrollMode.AUTO,
                             expand=True,
                         ),
-                    ]
+                    ],
                 )
+                    
+                
+
+    def build_base_view():
+        # Функция для обновления списка на экране
+        def refresh_base_list():
+            base_list.controls.clear()
+            # Группируем упражнения по мышцам
+            by_muscle = {}
+            for idx, ex in enumerate(exercise_base):
+                muscle = ex.get('muscle', 'Без группы')
+                by_muscle.setdefault(muscle, []).append((idx, ex))
+
+            for muscle, items in sorted(by_muscle.items()):
+                base_list.controls.append(
+                    ft.Text(muscle, size=18, weight='bold', color=ft.Colors.PRIMARY)
+                )
+                for idx, ex in items:
+                    base_list.controls.append(
+                        ft.ListTile(
+                            title=ft.Text(ex['name']),
+                            subtitle=ft.Text(ex.get('description', '')),
+                            trailing=ft.Row(
+                                [
+                                    ft.IconButton(
+                                        icon=ft.Icons.EDIT,
+                                        on_click=lambda e, i=idx: open_edit_exercise(i),
+                                    ),
+                                    ft.IconButton(
+                                        icon=ft.Icons.DELETE,
+                                        icon_color=ft.Colors.RED,
+                                        on_click=lambda e, i=idx: delete_exercise(i),
+                                    ),
+                                ],
+                                tight=True
+                            ),
+                        )
+                    )
+                page.update()
+
+        def delete_exercise(idx):
+            if not (0 <= idx < len(exercise_base)):
+                return
+
+            ex_name = exercise_base[idx]['name']
+
+            def confirm_delete(e):
+                # Удаляем упражнение из базы
+                del exercise_base[idx]
+                # Заодно убираем его из всех тренировочных дней
+                for day in training_days:
+                    if ex_name in day.get('exercise', []):
+                        day['exercise'].remove(ex_name)
+                save_data(data)
+                page.pop_dialog()
+                refresh_base_list()
+
+            dialog = ft.AlertDialog(
+                title=ft.Text('Удалить упражнение'),
+                content=ft.Text(f'"{ex_name}" будет удалено из базы и из всех тренировочных дней. Это действие нельзя отменить'),
+                actions=[
+                    ft.TextButton('Отмена', on_click=lambda e: page.pop_dialog()),
+                    ft.TextButton('Удалить', on_click=confirm_delete, style=ft.ButtonStyle(color=ft.Colors.RED),
+                    ),
+                ],
+            )
+            page.show_dialog(dialog)
+
+
+        def open_edit_exercise(idx):
+            ex = exercise_base[idx]
+            name_field = ft.TextField(label='Название', value=ex.get('name', ''))
+            muscle_field = ft.TextField(label='Группа мышц', value=ex.get('muscle', ''))
+            desc_field = ft.TextField(label='Описание', value=ex.get('description', ''), multiline=True)
+
+            def save_edit(e):
+                if not name_field.value:
+                    return
+                exercise_base[idx] = {
+                    'name': name_field.value,
+                    'muscle': muscle_field.value,
+                    'description': desc_field.value
+                }
+                save_data(data)
+                page.pop_dialog()
+                refresh_base_list()
+
+            dialog = ft.AlertDialog(
+                title='Редактировать упражнение',
+                content=ft.Column([name_field, muscle_field, desc_field], tight=True),
+                actions=[ft.TextButton('Сохранить', on_click=save_edit),
+                         ft.TextButton('Отмена', on_click=lambda e: page.pop_dialog()),
+                         ],
+            )
+            page.show_dialog(dialog)
+
+        def open_add_exercise(e):
+            name_field = ft.TextField(label='Название')
+            muscle_field = ft.TextField(label='Группа мышц')
+            desc_field = ft.TextField(label='Описание', multiline=True)
+
+            def save_new(e):
+                if not name_field.value:
+                    return
+                exercise_base.append({
+                    'name': name_field.value,
+                    'muscle': muscle_field.value,
+                    'description': desc_field.value,
+                })
+                save_data(data)
+                page.pop_dialog()
+                refresh_base_list()
+
+            dialog = ft.AlertDialog(
+                title=ft.Text('Новое упражнение'),
+                content=ft.Column([name_field, muscle_field, desc_field], tight=True),
+                actions=[
+                    ft.TextButton('Добавить', on_click=save_new),
+                    ft.TextButton('Отмена', on_click=lambda e: page.pop_dialog()),
+                ],
+            )
+            page.show_dialog(dialog)
+        base_list = ft.Column(scroll=ft.ScrollMode.AUTO, expand=True)
+
+        view = ft.View(
+            route='/base',
+            padding=0,
+            controls=[
+                ft.AppBar(
+                    title=ft.Text('База упражнений'),
+                    leading=ft.IconButton(
+                        icon=ft.Icons.ARROW_BACK,
+                        on_click=lambda e: asyncio.create_task(page.push_route("/")),
+                    ),
+                ),
+                ft.Column(
+                    controls=[
+                        ft.Row(
+                            [
+                                ft.Text('Все упражнения', size=20, weight='bold'),
+                                ft.Button('Добавить', on_click=open_add_exercise),
+                            ],
+                            alignment= ft.MainAxisAlignment.SPACE_BETWEEN,
+                        ),
+                        ft.Divider(),
+                        base_list,
+                    ],
+                    expand=True,
+                    spacing=10,
+                ),
+            ],
+        )
+        refresh_base_list()
+        return view
  
 
     def build_muscle_picker_view(day_id):
@@ -294,6 +524,7 @@ def main(page: ft.Page):
             page.views.remove(e.view)
             top_view = page.views[-1]
             await page.push_route(top_view.route)
+    
     page.on_view_pop = view_pop
 
 
@@ -301,6 +532,9 @@ def main(page: ft.Page):
         rest_seconds = 30
         rest_task = None
         is_running = False
+
+        ex_info = next((ex for ex in exercise_base if ex.get('name')==ex_name), None)
+        image_src = ex_info.get('image') if ex_info else None
 
         def format_secs(sec):
             mins, s = divmod(int(sec), 60)
@@ -376,6 +610,7 @@ def main(page: ft.Page):
                 'reps': reps_field.value,
                 'comment': comment_field.value,
                 'date': datetime.now().strftime('%Y-%m-%d'),
+                'timestamp': datetime.now().isoformat(),
             }
 
             workouts.append(record)
@@ -383,6 +618,7 @@ def main(page: ft.Page):
             weight_field.value = ''
             reps_field.value = ''
             comment_field.value = ''
+            update_stats_display()
             rebuild_history()
             start_rest_timer()
 
@@ -425,6 +661,7 @@ def main(page: ft.Page):
 
                 # записи этого дня в обратном порядке
                 day_entries = list(reversed(by_date[date]))
+
                 for i, w in enumerate(day_entries, start=1):
                     num = total - (i - 1)
                     comment = w.get('comment', '')
@@ -432,28 +669,49 @@ def main(page: ft.Page):
 
                     rec_id = w.get('id')
 
-                    delete_icon = ft.IconButton(
-                            icon=ft.Icons.DELETE,
-                            icon_color=ft.Colors.RED,
-                            visible=False,
-                            on_click=lambda e, rid=rec_id: remove_approach(rid),
-                        )
+                    
 
-                    title=ft.ListTile(
-                        title=ft.Text(
-                            f" #{num} {w.get('weight', '')} кг {w.get('reps', '')}{comment_str}"
-                        ),
-                        trailing=delete_icon
-                    )
 
-                    container = ft.Container(
-                        content=title,
-                        on_hover=lambda e, icon=delete_icon:(
-                            setattr(icon, 'visible', e.data),
-                            page.update(),
+                    # Функция заполнения полей по клику
+                    def fill_fields(e, w=w):
+                        weight_field.value = w.get('weight', '')
+                        reps_field.value = w.get('reps', '')
+                        comment_field.value = w.get('comment', '')
+                        page.update()
+
+                    row_content = ft.Row(
+                                    controls=[
+                                        ft.Text(f" #{num} {w.get('weight', '')} кг x {w.get('reps', '')} {comment_str}",
+                                            size=14,
+                                            expand=True,
+                                    ),
+                                ],
+                                alignment=ft.MainAxisAlignment.START,
+                                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                            )
+                    
+                    dismissible = ft.Dismissible(
+                        content=ft.Container(
+                            content=row_content,
+                            on_click=fill_fields,
+                            padding=ft.Padding.symmetric(horizontal=10, vertical=2),
+                            height=25,
                         ),
+                        dismiss_direction=ft.DismissDirection.END_TO_START,
+                        background=ft.Container(
+                            bgcolor=ft.Colors.RED,
+                            alignment=ft.Alignment.CENTER_RIGHT,
+                        ),
+                        secondary_background=ft.Container(
+                            content=ft.Icon(ft.Icons.DELETE, color=ft.Colors.WHITE, size=20),
+                            bgcolor=ft.Colors.RED,
+                            alignment=ft.Alignment.CENTER_RIGHT,
+                            padding=ft.Padding.only(right=10),  # отступ только справа
+                        ),
+                        on_dismiss=lambda e, rid=rec_id: remove_approach(rid),
+                        key=f"approach_{rec_id}",
                     )
-                    history_column.controls.append(container)
+                    history_column.controls.append(dismissible)
 
             page.update()
 
@@ -462,7 +720,7 @@ def main(page: ft.Page):
         reps_field = ft.TextField(label='Повторения', keyboard_type=ft.KeyboardType.NUMBER, expand=1)
         comment_field = ft.TextField(label='Комментарий', expand=2)
         count_text = ft.Text('Подходов выполнено: 0', size=16, weight='bold')
-        history_column = ft.ListView(spacing=5, height=300)
+        history_column = ft.Column(spacing=5)
 
         add_button = ft.Button('Добавить подход', on_click=save_approach)
 
@@ -475,9 +733,40 @@ def main(page: ft.Page):
             ),
         )
 
+        def open_image_fullscreen(src):
+            def close_img(e):
+                page.pop_dialog()
+
+            dialog = ft.AlertDialog(
+                content=ft.ListView(
+                    controls=[
+                        ft.Image(
+                            src=src,
+                            fit=ft.BoxFit.CONTAIN,
+                            width=400,
+                            height=400,
+                    ),
+                    ],
+                    width=420,
+                    height=420,
+                ),
+                actions=[ft.TextButton('Закрыть', on_click=close_img)],
+            )
+            page.show_dialog(dialog)
+
         # --- Содержимое ---
-        content = ft.Column(
+        content = ft.ListView(
             controls=[
+                ft.GestureDetector(
+                    on_tap=lambda e: open_image_fullscreen(image_src),
+                    content=ft.Image(
+                    src=image_src,
+                    width=300,
+                    height=200,
+                    fit=ft.BoxFit.CONTAIN,
+                    ),
+                ) if image_src else ft.Container(),
+
                 ft.Row([
                     rest_picker_row,
                     ft.Container(width=30),
@@ -493,7 +782,7 @@ def main(page: ft.Page):
                 history_column,
                 ],
             spacing=10,
-            scroll=ft.ScrollMode.AUTO,
+            # scroll=ft.ScrollMode.AUTO,
             expand=True
         )
 
@@ -509,26 +798,34 @@ def main(page: ft.Page):
 
     # --- Роутер ---
     def on_route_change(e):
-        page.views.clear()
+        # page.views.clear()
         route = page.route
+        view = None
+
         if route.startswith("/add-to/"):
             parts = route.split("/")
             day_id = parts[2]
             if len(parts) >= 4 and parts[3]:
-                page.views.append(build_exercise_picker_view(day_id, parts[3]))
+                view = build_exercise_picker_view(day_id, parts[3])
             else:
-                page.views.append(build_muscle_picker_view(day_id))
+                view = build_muscle_picker_view(day_id)
         elif route.startswith("/exercise/"):
             parts = route.split("/")
             day_id = parts[2]
             ex_name = parts[3]
-            page.views.append(build_exercise_view(day_id, ex_name))
+            view = build_exercise_view(day_id, ex_name)
+        elif route == "/base":
+            view = build_base_view()
         else:
-            page.views.append(build_main_view())
+            view = build_main_view()
             refresh_exercises()
+        # page.update()
+        page.views.clear()
+        page.views.append(view)
         page.update()
+
     page.on_route_change = on_route_change
     on_route_change(None)
     refresh_exercises()
-
+    update_stats_display()
 ft.run(main)
