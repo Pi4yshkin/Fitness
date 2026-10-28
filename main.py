@@ -682,17 +682,7 @@ def main(page: ft.Page):
 
                     rec_id = w.get('id')
 
-                    delete_icon = ft.IconButton(
-                            icon=ft.Icons.DELETE,
-                            icon_color=ft.Colors.RED,
-                            icon_size=16,
-                            visual_density=ft.VisualDensity.COMPACT,
-                            style=ft.ButtonStyle(
-                                padding=ft.Padding.symmetric(horizontal=4, vertical=0)
-                            ),
-                            visible=False,
-                            on_click=lambda e, rid=rec_id: remove_approach(rid),
-                        )
+                    
 
 
                     # Функция заполнения полей по клику
@@ -707,24 +697,34 @@ def main(page: ft.Page):
                                         ft.Text(f" #{num} {w.get('weight', '')} кг x {w.get('reps', '')} {comment_str}",
                                             size=14,
                                             expand=True,
-                                        ),
-                                delete_icon,
+                                    ),
                                 ],
-                                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                alignment=ft.MainAxisAlignment.START,
                                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
                             )
                     
-                    container = ft.Container(
-                                    content=row_content,
-                                    on_hover=lambda e, icon=delete_icon: (
-                                    setattr(icon, 'visible', e.data),
-                                    page.update(),
-                                ),
-                                on_click=fill_fields,
-                                padding=ft.Padding.symmetric(horizontal=10, vertical=2),
-                                height=25,
-                            )
-                    history_column.controls.append(container)
+                    dismissible = ft.Dismissible(
+                        content=ft.Container(
+                            content=row_content,
+                            on_click=fill_fields,
+                            padding=ft.Padding.symmetric(horizontal=10, vertical=2),
+                            height=25,
+                        ),
+                        dismiss_direction=ft.DismissDirection.END_TO_START,
+                        background=ft.Container(
+                            bgcolor=ft.Colors.RED,
+                            alignment=ft.Alignment.CENTER_RIGHT,
+                        ),
+                        secondary_background=ft.Container(
+                            content=ft.Icon(ft.Icons.DELETE, color=ft.Colors.WHITE, size=20),
+                            bgcolor=ft.Colors.RED,
+                            alignment=ft.Alignment.CENTER_RIGHT,
+                            padding=ft.Padding.only(right=10),  # отступ только справа
+                        ),
+                        on_dismiss=lambda e, rid=rec_id: remove_approach(rid),
+                        key=f"approach_{rec_id}",
+                    )
+                    history_column.controls.append(dismissible)
 
             page.update()
 
