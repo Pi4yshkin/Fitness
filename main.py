@@ -52,6 +52,8 @@ def main(page: ft.Page):
     workout_seconds = 0  # секунд по умолчанию
     workout_running = False  # флаг состояния тренировки
     workout_timer_text = ft.Text('00:00', size=36, weight='bold', color=ft.Colors.GREEN)  # отображение таймера тренировки
+    start_workout_button = ft.Button('Стартуем')
+    finish_workout_button = ft.Button('ОстановОчка', color=ft.Colors.RED, visible=False)
 
     stats_text = ft.Text("Сегодня: 0 подходов, 0 кг", size=20, color=ft.Colors.GREY)  # статистика подходов за тренировочный день
     
@@ -538,6 +540,7 @@ def main(page: ft.Page):
             page.views.remove(e.view)
             top_view = page.views[-1]
             await page.push_route(top_view.route)
+    
     page.on_view_pop = view_pop
 
 
