@@ -1,6 +1,9 @@
 from datetime import datetime, timedelta
 from typing import Optional
 
+import models
+from database import engine, get_db
+
 # Depends механизм внедрения зависимостей (например, что бы получить текущего пользователя)
 from fastapi import Depends, FastAPI, HTTPException, status
 
@@ -17,6 +20,7 @@ from passlib.context import CryptContext
 
 # BaseModel из Pydantic используется для валидации входящих данных (схем)
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 # SECRET_KEY это "соль", которой подписываются токены
 # НАДО БУДЕТ ПЕРЕНЕСТИ В .env
@@ -40,8 +44,10 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 # Создаем экземпляр приложения FastAPI
 app = FastAPI()
 
-# Временная база данных
-fake_user_db = {}
+# 👇 ВАЖНО: Эта команда создает таблицы в базе данных, если их еще нет.
+# Она берет описание из models.py и применяет к базе из database.py.
+models.Base.metadata.create_all(bind=engine)
+
 
 # Pydantic-модель для регистрации. 
 # Она проверяет, что пришел JSON с полями username и password (оба строки).
@@ -95,40 +101,38 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     return encoded_jwt
 
 @app.post("/register", status_code=status.HTTP_201_CREATED)
-async def register(user: UserCreate):
+async def register(user: UserCreate, db: Session = Depends(get_db)):
     """
-    Эндпоинт для регистрации.
-    Принимает JSON с username и password.
+    Регистрация. Теперь мы ищем пользователя в базе данных.
     """
-    # Проверяем, не занят ли логин.
-    if user.username in fake_user_db:
+    # Ищем пользователя в таблице users
+    db_user = db.query(models.User).filter(models.User.username == user.username).first()
+    if db_user:
         # Если занят — возвращаем ошибку 400 Bad Request.
         raise HTTPException(status_code=400, detail="Такой пользователь уже зарегистрирован")
     
     # Хешируем пароль (никогда не сохраняем его в открытом виде!).
     hashed_password = get_password_hash(user.password)
 
-    # Сохраняем пользователя в "базу".
-    fake_user_db[user.username] = {
-        "username": user.username,
-        "hashed_password": hashed_password,
-    }
+    # Сохраняем пользователя в базу данных
+    new_user = models.User(username=user.username, hashed_password=hashed_password)
+    db.add(new_user)
+    db.commit()  # Фиксируем изменения в базе
+    db.refresh(new_user)  # Обновляем объект (что бы получит id)
 
     # Возвращаем сообщение об успехе.
     return {"message": "Пользователь зарегистрирован"}
 
 @app.post("/token", response_model=Token)
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     """
-    Эндпоинт для входа (получения токена).
-    Принимает форму с полями username и password (стандарт OAuth2).
-    Если данные верны — возвращает access_token.
+    Логин. Ищем пользователя в базе и проверяем пароль.
     """
-    # Ищем пользователя в "базе".
-    user = fake_user_db.get(form_data.username)
+    # Ищем пользователя в базе.
+    user = db.query(models.User).filter(models.User.username == form_data.username).first()
 
     # Если пользователя нет или пароль неверный — возвращаем 401 Unauthorized.
-    if not user or not verify_password(form_data.password, user["hashed_password"]):
+    if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, 
                             detail="Неверное имя или пароль",
                             # Заголовок WWW-Authenticate говорит клиенту, какой тип авторизации использовать.
@@ -137,22 +141,21 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     # Создаем токен. В поле "sub" (subject) кладем имя пользователя.
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user["username"]}, expires_delta=access_token_expires
+        data={"sub": user.username}, expires_delta=access_token_expires
     )
     # Возвращаем токен клиенту.
     return {"access_token": access_token, "token_type": "bearer"}
 
 
 @app.get("/users/me")
-async def read_users_me(token: str = Depends(oauth2_scheme)):
+async def read_users_me(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """
-    Защищенный эндпоинт. 
-    Возвращает информацию о текущем пользователе, только если токен валиден.
+    Защищенный эндпоинт. Проверяем токен и достаем пользователя из базы.
     """
     # Готовим ошибку на случай проблем с токеном.
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentails",
+        detail="Не удалось проверить учетные данные",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
@@ -170,9 +173,9 @@ async def read_users_me(token: str = Depends(oauth2_scheme)):
          raise credentials_exception
 
     # Проверяем, что такой пользователь действительно существует.
-    user = fake_user_db.get(username)
+    user = db.query(models.User).filter(models.User.username == username).first()
     if user is None:
         raise credentials_exception
 
     # Возвращаем данные пользователя.
-    return {"username": user["username"]}
+    return {"username": user.username}
