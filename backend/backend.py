@@ -1,5 +1,4 @@
-from datetime import datetime, timedelta
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 import models
 from database import engine, get_db
@@ -78,7 +77,7 @@ def get_password_hash(password):
     return pwd_context.hash(password)
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+def create_access_token(data: dict, expires_delta: timedelta | None):
     """
     Создает JWT-токен.
     data — это полезная нагрузка (payload), например {"sub": "username"}.
@@ -88,9 +87,9 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()  # делаем копию, что бы не менять оригинал 
 
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(UTC) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
+        expire = datetime.now(UTC) + timedelta(minutes=15)
 
     # Добавляем поле "exp" (expiration) — это стандартное поле JWT.
     to_encode.update({"exp": expire})
@@ -179,3 +178,5 @@ async def read_users_me(token: str = Depends(oauth2_scheme), db: Session = Depen
 
     # Возвращаем данные пользователя.
     return {"username": user.username}
+
+
