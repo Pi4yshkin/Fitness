@@ -26,7 +26,7 @@ def load_data():
         try:
             with open(DATA_FILE, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                for key in default_data.items():
+                for key in default_data:
                     if key not in data:
                         data[key] = default_data[key]
                 return data
@@ -43,12 +43,13 @@ def save_data(data):
 def show_login_screen(page: ft.Page):
     page.views.clear()
 
-    username_field = ft.TextField(label="Логин", weight=300)
-    password_field = ft.TextField(label="Пароль", password=True, weight=300)
+    username_field = ft.TextField(label="Логин", width=300)
+    password_field = ft.TextField(label="Пароль", password=True, width=300)
     error_text = ft.Text("", color=ft.Colors.RED)
 
-    def login(e):
+    async def login(e):
         import httpx
+        
         try:
             # Отправляем запрос на сервер
             response = httpx.post(
@@ -56,14 +57,15 @@ def show_login_screen(page: ft.Page):
                 data={"username": username_field.value, "password": password_field.value}
             )
 
-            if responce.status_code == 200:
+            if response.status_code == 200:
                 # Если успех - сохраняем токен
                 token = response.json()["access_token"]
-                page.client_storage.set("auth_token", token)
+                prefs = ft.SharedPreferences()
+                await prefs.set("auth_token", token)
 
                 # Перезапускаем main 
-                page.ciews.clear()
-                main(page)  # Запускаем main, он увидит токен и загрузит данные 
+                page.views.clear()
+                page.run_task(main, page)  # Запускаем main, он увидит токен и загрузит данные 
             else:
                 error_text.value = "Неверный логин или пароль"
                 page.update()
@@ -97,11 +99,12 @@ def show_login_screen(page: ft.Page):
     page.views.append(view)
     page.update()
 
-def main(page: ft.Page):
+async def main(page: ft.Page):
     page.title = 'Мой фитнес-трекер'
 
     # Проверка авторизации
-    token = page.client_storage.get("auth_token")
+    prefs = ft.SharedPreferences()
+    token = await prefs.get("auth_token")
 
     if not token:
         # Если нет токена показываем экран логина
@@ -124,10 +127,11 @@ def main(page: ft.Page):
     stats_reset_time = {'value': None}
 
 
-    def sync_data_with_server(page: ft.Page, data: dict):
+    async def sync_data_with_server(page: ft.Page, data: dict):
         """Отправляет данные на сервер"""
         import httpx
-        token = page.client_storage.get("auth_token")
+        prefs = ft.SharedPreferences()
+        token = await prefs.get("auth_token")
 
         if not token:
             return
@@ -326,6 +330,14 @@ def main(page: ft.Page):
         page.update()
 
 
+    async def logout(e):
+        perfs = ft.SharedPreferences()
+        await perfs.remove("auth_token")  # Удаляем токен
+        page.views.clear()
+        show_login_screen(page)  # Показываем окно логина
+
+
+
     # --- Добавляем главный экран ---
     def build_main_view():
         return ft.View(
@@ -339,6 +351,12 @@ def main(page: ft.Page):
                         icon=ft.Icons.LIBRARY_BOOKS,
                         tooltip='База упражнений',
                         on_click=lambda e:asyncio.create_task(page.push_route("/base")),
+                        ),
+                        # Кнопка сброса токена авторизации
+                        ft.IconButton(
+                            icon=ft.Icons.LOGOUT,
+                            tooltip="Выход",
+                            on_click=logout,
                         ),
                     ],
                 ),
