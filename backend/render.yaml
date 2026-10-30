@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: fitness-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn backend:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: ALGORITHM
+        sync: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        sync: 10080
