@@ -30,11 +30,11 @@ class TrainingDay(Base):
     owner = relationship("User", back_populates="days")
 
 
-class Workouts(Base):
+class Workout(Base):
     __tablename__ = "workouts"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = (Integer, ForeignKey("users.id"))  # Призяка к пользователю
+    user_id = Column(Integer, ForeignKey("users.id"))  # Призяка к пользователю
     workout_id = Column(String)  # UUID из Flet (что бы не дублировать записи)
     day_id = Column(String)
     exercise = Column(String)
@@ -44,6 +44,6 @@ class Workouts(Base):
     date = Column(String)
     timestamp = Column(String)
 
-    owner = relationship("User", back_popuates="workouts")
+    owner = relationship("User", back_populates="workouts")
 
     

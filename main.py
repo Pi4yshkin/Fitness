@@ -25,7 +25,7 @@ def load_data():
         try:
             with open(DATA_FILE, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                for key in default_data:
+                for key in default_data.items():
                     if key not in data:
                         data[key] = default_data[key]
                 return data

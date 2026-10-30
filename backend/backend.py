@@ -1,6 +1,8 @@
+import json
 from datetime import UTC, datetime, timedelta
 
 import models
+import schemas
 from database import engine, get_db
 
 # Depends механизм внедрения зависимостей (например, что бы получить текущего пользователя)
@@ -180,3 +182,88 @@ async def read_users_me(token: str = Depends(oauth2_scheme), db: Session = Depen
     return {"username": user.username}
 
 
+# --- ЭНДПОИНТЫ СИНХРОНИЗАЦИИ ---
+
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    "Вспомогательная функция, достает пользователя из токена"
+    credentials_exeption = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Не удалось проверить учетные данные",
+    )
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exeption
+    except JWTError:
+        raise credentials_exeption
+
+    user = db.query(models.User).filter(models.User.username == username).first()
+    if user is None:
+        raise credentials_exeption
+    return user
+
+@app.get("/sync", response_model=schemas.SyncData)
+async def sync_get(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Загружаем все данные пользователя с сервера"""
+    # Дни
+    days = db.query(models.TrainingDay).filter(models.TrainingDay.user_id == current_user.id).all()
+    days_data = []
+    for d in days:
+        days_data.append(schemas.TrainingDay(
+            id=d.id,
+            day_id=d.day_id,
+            name=d.name,
+            exercises=json.loads(d.exercises_json)
+        ))
+    # Подходы
+    workouts = db.query(models.Workout).filter(models.Workout.user_id == current_user.id).all()
+    workouts_data = [
+        schemas.WorkoutBase(
+            workout_id=w.workout_id,
+            day_id=w.day_id,
+            exercise=w.exercise,
+            weight=w.weight,
+            reps=w.reps,
+            comment=w.comment,
+            date=w.date,
+            timestamp=w.timestamp,
+        ) for w in workouts
+    ]
+    return schemas.SyncData(training_days=days_data, workouts=workouts_data)
+
+
+@app.post("/sync")
+async def sync_post(data: schemas.SyncData, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Сохраняем данные пользователя на сервер (полностью перезаписыввает)"""
+    # Удаляем старые данные
+    db.query(models.TrainingDay).filter(models.TrainingDay.user_id == current_user.id).delete()
+    db.query(models.Workout).filter(models.Workout.user_id == current_user.id).delete()
+
+    # Записываем новые дни 
+    for d in data.training_days:
+        new_day = models.TrainingDay(
+            user_id=current_user.id,
+            day_id=d.day_id,
+            name=d.name,
+            exercises_json=json.dumps(d.exercises, ensure_ascii=False)
+        )
+        db.add(new_day)
+
+    # Записываем подходы
+    for w in data.workouts:
+        new_workout = models.Workout(
+            user_id=current_user.id,
+            workout_id=w.workout_id,
+            day_id=w.day_id,
+            exercise=w.exercise,
+            weight=w.weight,
+            reps=w.reps,
+            comment=w.comment,
+            date=w.date,
+            timestamp=w.timestamp
+        )
+        db.add(new_workout)
+    db.commit()  # Фиксируем
+    return {"message": "Данные успешно синхронизированны"}

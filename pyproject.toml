@@ -11,3 +11,6 @@ dependencies = [
     "flet>=1.0.5",
     "flet-audio",
 ]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.Depends", "fastapi.params.Depends", "fastapi.Security"]
