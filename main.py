@@ -99,6 +99,56 @@ def show_login_screen(page: ft.Page):
     page.views.append(view)
     page.update()
 
+
+async def fetch_data_from_server(page: ft.Page):
+    """Скачивает данные с сервера и сохраняет в data.json"""
+    import json
+
+    import httpx
+    prefs = ft.SharedPreferences()
+    token = await prefs.get("auth_token")
+
+    if not token:
+        return None
+
+    try:
+        headers = {"Authorization": f"Bearer {token}"}
+        response = httpx.get(f"{API_URL}/sync", headers=headers)
+
+        if response.status_code == 200:
+            server_data = response.json()
+            # Сохраняем в локальный файл, чтобы при следующем запуске без интернета данные был
+            with open(DATA_FILE, "w", encoding="utf-8") as f:
+                json.dump(server_data, f, ensure_ascii=False, indent=4)
+            return server_data
+        else:
+            print(f"Ошибка получения данных: {response.status_code}")
+            return None
+    except Exception as e:
+        print(f"Ошибка при загрузке сервера: {e}")
+        return None
+
+
+async def sync_data_to_server(page: ft.Page, data: dict):
+    """Отправляет локальные данные на сервер"""
+    import httpx
+    prefs = ft.SharedPreferences()
+    token = await prefs.get("auth_token")
+
+    if not token:
+        return
+
+    try:
+        headers = {"Authorization": f"Bearer {token}"}
+        # Отправляем данные, сервер сам заменит старые данные на новые
+        response = httpx.post(f"{API_URL}/sync", json=data, headers=headers)
+
+        if response.status_code != 200:
+            print(f"Ошибка авторизации: {response.status_code}")
+    except Exception as e:
+        print(f"Ошибка сети при отправке: {e}")
+
+
 async def main(page: ft.Page):
     page.title = 'Мой фитнес-трекер'
 
@@ -110,8 +160,12 @@ async def main(page: ft.Page):
         # Если нет токена показываем экран логина
         show_login_screen(page)
         return
-
-    data = load_data()
+    
+    server_data = await fetch_data_from_server(page)
+    if server_data:
+        data = server_data
+    else:
+        data = load_data()
     exercise_base = data.get("exercise_base", [])
     training_days = data.get("training_days", [])
     workouts = data.get("workouts", [])
@@ -159,7 +213,7 @@ async def main(page: ft.Page):
 
 
     day_exercises_list = {
-        day['id']: ft.Column() for day in training_days
+        day['day_id']: ft.Column() for day in training_days
     }
 
     tabs = ft.Tabs(
@@ -183,16 +237,16 @@ async def main(page: ft.Page):
                             content=ft.Column(
                                 controls=[
                                     ft.Text("Упражнения:", size=18, weight='bold'),
-                                    day_exercises_list[day['id']],
+                                    day_exercises_list[day['day_id']],
                                     ft.TextButton(
                                         "Добавить упражнение", 
-                                        on_click=lambda e, d_id=day['id']: 
+                                        on_click=lambda e, d_id=day['day_id']: 
                                         asyncio.create_task(page.push_route(f"/add-to/{d_id}"))),
                                 ]),
                             padding=20,)
                         for day in training_days],),],),)
     
-    current_day_id = training_days[0]['id'] if training_days else None  # какой сейчас день открыт
+    current_day_id = training_days[0]['day_id'] if training_days else None  # какой сейчас день открыт
 
     def on_tab_change(e):
         nonlocal current_day_id
@@ -287,11 +341,12 @@ async def main(page: ft.Page):
 
     def remove_exercise_from_day(day_id, ex_index):
         for day in training_days:
-            if day['id'] == day_id:
+            if day['day_id'] == day_id:
                 if 0 <= ex_index < len(day['exercises']):
                     day['exercises'].pop(ex_index)
                 break
         save_data(data)
+        page.run_task(sync_data_to_server, page, data)
         refresh_exercises()
         page.update()
 
@@ -300,7 +355,7 @@ async def main(page: ft.Page):
     def refresh_exercises():
         for day_id, column in day_exercises_list.items():
             column.controls.clear()  # очищаем текущую историю
-            day = next((d for d in training_days if d['id'] == day_id), None)
+            day = next((d for d in training_days if d['day_id'] == day_id), None)
             if day is None:
                 continue
             for ex_index, ex_name in enumerate(day.get('exercises', [])):
@@ -430,6 +485,7 @@ async def main(page: ft.Page):
                     if ex_name in day.get('exercise', []):
                         day['exercise'].remove(ex_name)
                 save_data(data)
+                page.run_task(sync_data_to_server, page, data)
                 page.pop_dialog()
                 refresh_base_list()
 
@@ -574,11 +630,12 @@ async def main(page: ft.Page):
 
         def add_chosen(ex_name):
             for day in training_days:
-                if day['id'] == day_id:
+                if day['day_id'] == day_id:
                     if ex_name not in day['exercises']:
                         day['exercises'].append(ex_name)
                     break
             save_data(data)
+            page.run_task(sync_data_to_server, page, data)
             asyncio.create_task(page.push_route("/"))
 
         def back_to_muscles(e):
@@ -702,7 +759,7 @@ async def main(page: ft.Page):
             # count = sum(1 for w in workouts if w.get('day_id') == day_id and w.get('exercise') == ex_name) + 1
 
             record = {
-                'id': str(uuid.uuid4()),
+                'workout_id': str(uuid.uuid4()),
                 'day_id': day_id,
                 'exercise': ex_name,
                 'weight': weight_field.value,
@@ -714,16 +771,19 @@ async def main(page: ft.Page):
 
             workouts.append(record)
             save_data(data)
+            page.run_task(sync_data_to_server, page, data)
+
             weight_field.value = ''
             reps_field.value = ''
             comment_field.value = ''
+
             update_stats_display()
             rebuild_history()
             start_rest_timer()
 
         def remove_approach(rec_id):
             for i, w in enumerate(workouts):
-                if w.get('id') == rec_id:
+                if w.get('workout_id') == rec_id:
                     del workouts[i]
                     break
             save_data(data)
