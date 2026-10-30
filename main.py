@@ -124,6 +124,21 @@ def main(page: ft.Page):
     stats_reset_time = {'value': None}
 
 
+    def sync_data_with_server(page: ft.Page, data: dict):
+        """Отправляет данные на сервер"""
+        import httpx
+        token = page.client_storage.get("auth_token")
+
+        if not token:
+            return
+
+        try:
+            headers = {"Authorization": f"Bearer {token}"}
+            httpx.post(f"{API_URL}/sync", json=data, headers=headers)
+        except Exception as e:
+            print(f"Ошибка авторизации: {e}")
+
+
     def reset_stats(e):
         stats_reset_time['value'] = datetime.now()
         stats_text.value = "Сегодня: 0 подходов, 0 кг"
