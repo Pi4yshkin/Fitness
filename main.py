@@ -6,6 +6,7 @@ from datetime import datetime
 import flet as ft
 import flet_audio as fta
 
+API_URL = "http://127.0.0.1:8000"
 DATA_FILE = "data.json"
 
 def load_data():
@@ -38,9 +39,74 @@ def save_data(data):
     with open(DATA_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 
+
+def show_login_screen(page: ft.Page):
+    page.views.clear()
+
+    username_field = ft.TextField(label="Логин", weight=300)
+    password_field = ft.TextField(label="Пароль", password=True, weight=300)
+    error_text = ft.Text("", color=ft.Colors.RED)
+
+    def login(e):
+        import httpx
+        try:
+            # Отправляем запрос на сервер
+            response = httpx.post(
+                f"{API_URL}/token",
+                data={"username": username_field.value, "password": password_field.value}
+            )
+
+            if responce.status_code == 200:
+                # Если успех - сохраняем токен
+                token = response.json()["access_token"]
+                page.client_storage.set("auth_token", token)
+
+                # Перезапускаем main 
+                page.ciews.clear()
+                main(page)  # Запускаем main, он увидит токен и загрузит данные 
+            else:
+                error_text.value = "Неверный логин или пароль"
+                page.update()
+        except Exception as ex:
+            error_text.value = f"Ошибка сети: {str(ex)}"
+            page.update()
+
+
+    login_button = ft.Button("Войти", on_click=login)
+
+    view = ft.View(
+        route="/login",
+        controls = [
+            ft.Column(
+                controls = [
+                    ft.Text("Вход в фитнес-трекер", size=24, weight="bold"),
+                    username_field,
+                    password_field,
+                    error_text,
+                    login_button,
+                ],
+                alignment=ft.MainAxisAlignment.CENTER,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                spacing=20,
+            )
+        ],
+        vertical_alignment=ft.MainAxisAlignment.CENTER,
+        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+    )
+
+    page.views.append(view)
+    page.update()
+
 def main(page: ft.Page):
     page.title = 'Мой фитнес-трекер'
 
+    # Проверка авторизации
+    token = page.client_storage.get("auth_token")
+
+    if not token:
+        # Если нет токена показываем экран логина
+        show_login_screen(page)
+        return
 
     data = load_data()
     exercise_base = data.get("exercise_base", [])
